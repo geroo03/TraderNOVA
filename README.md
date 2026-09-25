@@ -44,6 +44,16 @@ npm run dev      # http://localhost:3000
 
 Los Material Symbols se usan con `<MsIcon name="…" />`. El script `npm run icons` escanea `src/`, copia a `public/icons` solo los SVG usados y genera el tipo `MsIconName` (`src/components/ui/ms-icon-names.ts`, no editar a mano). Cada vez que uses un ícono nuevo hay que correrlo. Los SVG se commitean, así que el paquete `@material-symbols/svg-400` es solo dependencia de desarrollo.
 
+## Deploy en Vercel
+
+Importá el repositorio en Vercel: detecta Next.js y no necesita configuración. Variables opcionales:
+
+| Variable | Efecto |
+| --- | --- |
+| `STAFF_USER`, `STAFF_PASSWORD` | Si están definidas, `/admin/*` pide usuario y contraseña (HTTP Basic, ver `src/proxy.ts`). Sin ellas la demo queda abierta. |
+
+Las rutas `/admin/*` se marcan `noindex`. La URL base de los metadatos sale de `VERCEL_PROJECT_PRODUCTION_URL`.
+
 ## Pantallas
 
 ### Públicas

@@ -18,9 +18,21 @@ const jetbrainsMono = localFont({
   display: "swap",
 });
 
+const siteUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL
+  ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+  : "http://localhost:3000";
+
 export const metadata: Metadata = {
-  title: "Nodo Trading",
+  metadataBase: new URL(siteUrl),
+  title: { template: "%s · Nodo Trading", default: "Nodo Trading" },
   description: "Terminal de inversores BYMA y CEDEARs.",
+  openGraph: {
+    title: "Nodo Trading",
+    description: "Terminal de inversores BYMA y CEDEARs.",
+    siteName: "Nodo Trading",
+    locale: "es_AR",
+    type: "website",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
