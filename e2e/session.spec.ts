@@ -31,3 +31,16 @@ test("con la rueda cerrada no se ejecutan órdenes reales al cargar la página",
   await page.goto("/ordenes");
   await expect(page.locator("tbody tr", { hasText: "NYM-92790" })).toContainText("Parcialmente ejecutada");
 });
+
+test.describe("feriados", () => {
+  test.beforeEach(async ({ page }) => {
+    // Lunes 12/10/2026 al mediodía: feriado nacional, sin rueda.
+    await page.clock.setFixedTime(new Date("2026-10-12T12:00:00-03:00"));
+  });
+
+  test("en un feriado la rueda está cerrada y se informa el motivo", async ({ page }) => {
+    await page.goto("/operar?especie=GGAL");
+    await expect(page.getByText(/feriado: Día de la Diversidad Cultural/).first()).toBeVisible();
+    await expect(page.getByText(/abre mañana 11:00/).first()).toBeVisible();
+  });
+});

@@ -4,29 +4,27 @@ import { useState } from "react";
 import { LineChart } from "@/components/charts/LineChart";
 import { Tabs } from "@/components/ui/Tabs";
 import { formatPercent } from "@/lib/format";
-import { equityCurve } from "@/lib/portfolio";
+import { returnPct, type Range } from "@/lib/performance";
+import { usePerformance } from "./usePerformance";
 
-const RANGES = { "1M": 22, "3M": 40, "6M": 50, YTD: 55, "1A": 60, TODO: 60 } as const;
-type Range = keyof typeof RANGES;
+const RANGES = ["1M", "3M", "6M", "YTD", "1A", "MAX"] as const satisfies readonly Range[];
+type CurveRange = (typeof RANGES)[number];
 
 /** Serie rebasada a 100 al inicio del rango, para comparar rendimientos relativos. */
-function rebase(values: number[], n: number): number[] {
-  const slice = values.slice(-n);
-  return slice.map((v) => (v / slice[0]) * 100);
-}
+const rebase = (values: number[]) => values.map((v) => (v / values[0]) * 100);
 
+/** Curva patrimonial vs Merval y MEP; usa las mismas series que el dashboard. */
 export function EquityCurve() {
-  const [range, setRange] = useState<Range>("6M");
-  const n = RANGES[range];
-  const p = rebase(equityCurve.portfolio, n);
-  const m = rebase(equityCurve.merval, n);
-  const d = rebase(equityCurve.mep, n);
-  const ret = (s: number[]) => (s[s.length - 1] ?? 100) - 100;
+  const [range, setRange] = useState<CurveRange>("6M");
+  const { series } = usePerformance(range);
+  const p = rebase(series.portfolio);
+  const m = rebase(series.merval);
+  const d = rebase(series.mep);
 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex justify-end">
-        <Tabs size="sm" label="Rango" value={range} onChange={setRange} items={(Object.keys(RANGES) as Range[]).map((r) => ({ id: r, label: r }))} />
+        <Tabs size="sm" label="Rango" value={range} onChange={setRange} items={RANGES.map((r) => ({ id: r, label: r }))} />
       </div>
       <div className="h-56 rounded-lg bg-surface-lowest p-3">
         <LineChart
@@ -41,10 +39,10 @@ export function EquityCurve() {
         />
       </div>
       <ul className="flex flex-wrap items-center gap-4 text-xs">
-        <li className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-primary-strong" /> Mi cartera ({formatPercent(ret(p))})</li>
-        <li className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-fg-subtle" /> S&amp;P Merval ({formatPercent(ret(m))})</li>
-        <li className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-positive" /> Dólar MEP ({formatPercent(ret(d))})</li>
-        <li className="ml-auto font-mono font-semibold text-positive">{formatPercent(ret(p) - ret(m))} alpha vs mercado</li>
+        <li className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-primary-strong" /> Mi cartera ({formatPercent(returnPct(p))})</li>
+        <li className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-fg-subtle" /> S&amp;P Merval ({formatPercent(returnPct(m))})</li>
+        <li className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-positive" /> Dólar MEP ({formatPercent(returnPct(d))})</li>
+        <li className={`ml-auto font-mono font-semibold ${returnPct(p) >= returnPct(m) ? "text-positive" : "text-negative"}`}>{formatPercent(returnPct(p) - returnPct(m))} alpha vs mercado</li>
       </ul>
     </div>
   );

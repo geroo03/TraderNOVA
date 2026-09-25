@@ -7,9 +7,9 @@ import { Amount } from "@/components/ui/Amount";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { MoneyDialog, type MoneyAction } from "@/components/accounts/MoneyDialogs";
 import { MEP, usePortfolio } from "@/components/portfolio/usePortfolio";
+import { usePerformanceKpis } from "@/components/portfolio/usePerformance";
 import { useTrading } from "@/components/trading/TradingProvider";
 import { formatDecimal, formatInteger, formatPercent } from "@/lib/format";
-import { portfolioSummary as s } from "@/lib/mock-data";
 import { useSettingsStore } from "@/lib/store/hooks";
 import { useState } from "react";
 
@@ -44,6 +44,7 @@ function FooterStat({ label, value, valueClass }: { label: string; value: string
 /** KPIs del dashboard. Patrimonio, resultado y poder de compra se recalculan en vivo; respetan la moneda elegida en la barra superior. */
 export function KpiCards() {
   const p = usePortfolio();
+  const k = usePerformanceKpis();
   const { account } = useTrading();
   const [settings] = useSettingsStore();
   const [dialog, setDialog] = useState<MoneyAction | null>(null);
@@ -64,8 +65,10 @@ export function KpiCards() {
         footer={
           <div className="flex items-end justify-between">
             <div>
-              <p className="text-label text-positive">{formatPercent(s.ytdPct)} YTD</p>
-              <p className="text-label text-fg-subtle">vs Inflación 2025</p>
+              <p className={`text-label ${k.ytdPct >= 0 ? "text-positive" : "text-negative"}`}>
+                {formatPercent(k.ytdPct)} {k.simMode ? "desde el inicio" : "YTD"}
+              </p>
+              <p className="text-label text-fg-subtle">{k.simMode ? "Simulación" : "vs Inflación 2025"}</p>
             </div>
             <Sparkline name="kpi-sparkline-1" />
           </div>
@@ -89,7 +92,7 @@ export function KpiCards() {
         }
         footer={
           <div className="flex items-end justify-between">
-            <FooterStat label="Volumen operado" value={`$${formatInteger(s.dayVolume)}`} valueClass="text-fg-subtle" />
+            <FooterStat label="Volumen operado" value={`$${formatInteger(k.dayVolume)}`} valueClass="text-fg-subtle" />
             <Sparkline name="kpi-sparkline-2" />
           </div>
         }
@@ -99,7 +102,7 @@ export function KpiCards() {
       </KpiCard>
 
       <KpiCard
-        title="Rendimiento mensual"
+        title={k.simMode ? "Resultado de la simulación" : "Rendimiento mensual"}
         badge={
           <Badge tone="primary">
             <Icon name="kpi-mtd" width={11} height={9} />
@@ -108,15 +111,23 @@ export function KpiCards() {
         }
         footer={
           <div className="flex items-end justify-between">
-            <FooterStat label="Alpha de Cartera" value={`+${formatDecimal(s.alphaPts)} pts`} valueClass="text-primary" />
+            <FooterStat
+              label="Alpha de Cartera"
+              value={k.simMode ? "—" : `${k.alphaPts >= 0 ? "+" : ""}${formatDecimal(k.alphaPts)} pts`}
+              valueClass={k.alphaPts >= 0 ? "text-primary" : "text-negative"}
+            />
             <Sparkline name="kpi-sparkline-3" />
           </div>
         }
       >
-        <Amount value={conv(s.monthResult)} currency={cur} signed className="text-positive" />
+        <Amount value={conv(k.monthResult)} currency={cur} signed className={k.monthResult >= 0 ? "text-positive" : "text-negative"} />
         <p className="flex items-center gap-1 text-xs">
-          <span className="font-semibold text-positive">{formatPercent(s.monthResultPct)}</span>
-          <span className="text-fg-subtle">· Superando Merval en {formatPercent(s.monthVsMervalPct, 1)}</span>
+          <span className={`font-semibold ${k.monthPct >= 0 ? "text-positive" : "text-negative"}`}>{formatPercent(k.monthPct)}</span>
+          <span className="text-fg-subtle">
+            {k.simMode
+              ? "· contra el saldo virtual inicial"
+              : `· ${k.vsMervalPct >= 0 ? "Superando" : "Por debajo del"} Merval en ${formatPercent(Math.abs(k.vsMervalPct), 1).replace("+", "")}`}
+          </span>
         </p>
       </KpiCard>
 

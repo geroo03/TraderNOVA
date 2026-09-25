@@ -3,13 +3,13 @@ import Link from "next/link";
 import { BarChart } from "@/components/charts/BarChart";
 import { LineChart } from "@/components/charts/LineChart";
 import { DeskActivity } from "@/components/admin/DeskActivity";
+import { AdminKpis } from "@/components/admin/AdminKpis";
 import { SessionBadge } from "@/components/market/SessionBadge";
 import { Badge, StatusDot, type Tone } from "@/components/ui/Badge";
 import { RefreshDmaButton, ExportButton } from "@/components/admin/AdminActions";
 import { MsIcon } from "@/components/ui/MsIcon";
-import { PageHeader, Panel, Stat } from "@/components/ui/Page";
-import { formatDecimal, formatInteger } from "@/lib/format";
-import { adminKpis as k, hourlyVolume, opsAlerts, registrations, type Severity } from "@/lib/admin-data";
+import { PageHeader, Panel } from "@/components/ui/Page";
+import { hourlyVolume, opsAlerts, registrations, type Severity } from "@/lib/admin-data";
 
 export const metadata: Metadata = { title: "Consola de control" };
 
@@ -36,12 +36,7 @@ export default function AdminDashboardPage() {
         }
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat label="Comitentes activos" value={formatInteger(k.activeClients)} badge={<Badge tone="positive">+{formatDecimal(k.activeClientsChangePct)}%</Badge>} hint={`${formatInteger(k.connectedNow)} conectados en rueda`} />
-        <Stat label="Nuevas cuentas (mes)" value={formatInteger(k.newAccountsMonth)} badge={<Badge tone="primary">SLA 98%</Badge>} hint={`+${k.newAccountsToday} hoy · 85% aprobación automática`} />
-        <Stat label="Volumen operado hoy" value={<span className="text-lg">${formatInteger(k.volumeToday)}</span>} badge={<Badge tone="positive">+{k.volumeVsYesterdayPct}% vs ayer</Badge>} hint="BYMA acciones & CEDEARs 61,2%" />
-        <Stat label="Fondos bajo custodia" value={`$${formatInteger(k.aucM)}M`} badge={<Badge>AUC</Badge>} hint={`+$${formatInteger(k.aucTodayM)}M hoy · Caja de Valores`} />
-      </div>
+      <AdminKpis />
 
       <div className="grid gap-4 xl:grid-cols-2">
         <Panel

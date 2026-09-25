@@ -23,6 +23,7 @@ export function useMarketSession(): MarketSession {
     // Sin reloj (render del servidor) se asume abierta; el cliente corrige al hidratar.
     if (now === null) return { open: true, label: "", forced: false };
     const s = sessionAt(now);
-    return { open: s.open, label: `${s.open ? "cierra" : "abre"} ${describeTime(s.nextChange, now)}`, forced: false };
+    const when = `${s.open ? "cierra" : "abre"} ${describeTime(s.nextChange, now)}`;
+    return { open: s.open, label: s.holiday ? `feriado: ${s.holiday} · ${when}` : when, forced: false };
   }, [now, mode]);
 }

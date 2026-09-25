@@ -1,13 +1,12 @@
 "use client";
 
-import { useMemo, useState, type MouseEvent } from "react";
+import { useState, type MouseEvent } from "react";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { LineChart } from "@/components/charts/LineChart";
-import { usePortfolio } from "@/components/portfolio/usePortfolio";
+import { usePerformance } from "@/components/portfolio/usePerformance";
 import { formatDecimal, formatPercent } from "@/lib/format";
-import { performanceStats } from "@/lib/mock-data";
-import { walk } from "@/lib/random";
+import { returnPct } from "@/lib/performance";
 
 const BENCHMARKS = [
   { id: "portfolio", label: "Mi Cartera", dot: "bg-primary", color: "var(--color-primary-strong)" },
@@ -18,16 +17,6 @@ type Benchmark = (typeof BENCHMARKS)[number]["id"];
 
 const RANGES = ["1D", "1S", "1M", "YTD", "1A", "MAX"] as const;
 type Range = (typeof RANGES)[number];
-
-/** Cantidad de puntos, volatilidad y deriva de cada rango (datos sintéticos con semilla fija). */
-const SHAPE: Record<Range, { n: number; vol: number; drift: number; growth: number }> = {
-  "1D": { n: 36, vol: 0.002, drift: 0.0005, growth: 1.02 },
-  "1S": { n: 5 * 8, vol: 0.004, drift: 0.0006, growth: 1.035 },
-  "1M": { n: 22, vol: 0.009, drift: 0.003, growth: 1.08 },
-  YTD: { n: 40, vol: 0.012, drift: 0.006, growth: 1.19 },
-  "1A": { n: 52, vol: 0.02, drift: 0.008, growth: 1.35 },
-  MAX: { n: 60, vol: 0.03, drift: 0.012, growth: 1.9 },
-};
 
 const MONTHS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
@@ -47,26 +36,32 @@ export function PerformanceChart() {
   const [range, setRange] = useState<Range>("1M");
   const [benchmark, setBenchmark] = useState<Benchmark>("portfolio");
   const [hover, setHover] = useState<number | null>(null);
-  const { total } = usePortfolio();
-  // Se ancla al patrimonio de referencia para no redibujar todo con cada tick; el último punto sí es el vivo.
-  const [anchor] = useState(total);
+  const { series: values, stats } = usePerformance(range);
 
-  const series = useMemo(() => {
-    const { n, vol, drift, growth } = SHAPE[range];
-    const seed = RANGES.indexOf(range) * 10;
-    const portfolio = walk(seed + 1, n, anchor, vol, drift);
-    // Benchmarks rebasados al mismo punto de partida para comparar rendimiento relativo.
-    const start = anchor / growth;
-    const merval = walk(seed + 2, n, start * (1 + (growth - 1) * 0.7), vol * 1.2, drift * 0.7).map((v, _, a) => (v / a[0]) * portfolio[0]);
-    const mep = walk(seed + 3, n, start * (1 + (growth - 1) * 0.3), vol * 0.5, drift * 0.3).map((v, _, a) => (v / a[0]) * portfolio[0]);
-    return { portfolio, merval, mep };
-  }, [range, anchor]);
-
-  const values = { ...series, portfolio: [...series.portfolio.slice(0, -1), total] };
   const n = values.portfolio.length;
   const idx = hover ?? n - 1;
   const selected = values[benchmark];
-  const ret = (s: number[], i = s.length - 1) => (s[i] / s[0] - 1) * 100;
+  const ret = returnPct;
+  const statCards = [
+    { label: "Máximo del período", value: `$${formatDecimal(stats.max)}`, note: `Alcanzado ${labelAt(range, stats.maxIndex, n).replace(/ \d{4}$/, "")}`, tone: "text-positive", valueTone: "text-fg" },
+    {
+      label: "Drawdown máximo",
+      value: formatPercent(stats.drawdownPct),
+      note: stats.drawdownPct > -5 ? "Volatilidad controlada" : "Volatilidad alta",
+      tone: "text-fg-subtle",
+      valueTone: stats.drawdownPct < 0 ? "text-negative" : "text-fg",
+    },
+    {
+      label: "Ratio de Sharpe",
+      value: stats.sharpe === null ? "—" : formatDecimal(stats.sharpe),
+      note: stats.sharpe === null ? "Requiere 1M o más" : stats.sharpe >= 1 ? "Rendimiento óptimo s/ riesgo" : "Rendimiento ajustado bajo",
+      tone: stats.sharpe !== null && stats.sharpe >= 1 ? "text-positive" : "text-fg-subtle",
+      valueTone: "text-primary",
+    },
+    stats.annualizedPct === null
+      ? { label: "Rendimiento del período", value: formatPercent(ret(values.portfolio)), note: `En ${range}`, tone: "text-fg-subtle", valueTone: "text-fg" }
+      : { label: "Rendimiento anualizado", value: `${formatPercent(stats.annualizedPct, 1)} e.a.`, note: `Base ${range}`, tone: "text-fg-subtle", valueTone: "text-fg" },
+  ];
 
   function onMove(e: MouseEvent<HTMLDivElement>) {
     const r = e.currentTarget.getBoundingClientRect();
@@ -163,13 +158,11 @@ export function PerformanceChart() {
       </figure>
 
       <dl className="grid grid-cols-2 gap-2 pt-1 lg:grid-cols-4">
-        {performanceStats.map((stat) => (
+        {statCards.map((stat) => (
           <div key={stat.label} className="rounded-lg bg-surface-high p-2">
             <dt className="text-label uppercase tracking-[0.25px] text-fg-subtle">{stat.label}</dt>
-            <dd className={`pt-0.5 font-mono text-sm font-semibold ${"valueTone" in stat ? { positive: "text-positive", neutral: "text-fg", negative: "text-negative", primary: "text-primary" }[stat.valueTone] : "text-fg"}`}>
-              {stat.value}
-            </dd>
-            <dd className={`text-label ${{ positive: "text-positive", neutral: "text-fg-subtle", negative: "text-negative", primary: "text-primary" }[stat.tone]}`}>{stat.note}</dd>
+            <dd className={`pt-0.5 font-mono text-sm font-semibold ${stat.valueTone}`}>{stat.value}</dd>
+            <dd className={`text-label ${stat.tone}`}>{stat.note}</dd>
           </div>
         ))}
       </dl>

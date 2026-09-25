@@ -1,8 +1,10 @@
 /**
- * Horario de rueda de BYMA: lunes a viernes de 11:00 a 17:00, hora de Argentina.
+ * Horario de rueda de BYMA: lunes a viernes hábiles de 11:00 a 17:00, hora de Argentina.
  * Argentina usa UTC−3 todo el año (sin horario de verano), así que alcanza con un corrimiento fijo.
- * No contempla feriados.
+ * Los feriados salen de `holidays.ts`.
  */
+import { HOLIDAYS } from "./holidays";
+
 const ART_OFFSET_MS = -3 * 60 * 60 * 1000;
 export const OPEN_MINUTE = 11 * 60;
 export const CLOSE_MINUTE = 17 * 60;
@@ -12,34 +14,50 @@ const WEEKDAYS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes
 /** Fecha/hora "de pared" en Argentina, usando los getters UTC sobre un Date corrido. */
 function art(ms: number) {
   const d = new Date(ms + ART_OFFSET_MS);
-  return { weekday: d.getUTCDay(), minute: d.getUTCHours() * 60 + d.getUTCMinutes(), midnight: ms - ((ms + ART_OFFSET_MS) % DAY_MS + DAY_MS) % DAY_MS };
+  return {
+    weekday: d.getUTCDay(),
+    minute: d.getUTCHours() * 60 + d.getUTCMinutes(),
+    midnight: ms - ((((ms + ART_OFFSET_MS) % DAY_MS) + DAY_MS) % DAY_MS),
+    dateKey: d.toISOString().slice(0, 10),
+  };
 }
 
-const isTradingDay = (weekday: number) => weekday >= 1 && weekday <= 5;
+/** Nombre del feriado de la fecha (hora argentina), si lo hay. */
+export function holidayAt(ms: number): string | undefined {
+  return HOLIDAYS[art(ms).dateKey];
+}
+
+const isTradingDay = (ms: number) => {
+  const { weekday, dateKey } = art(ms);
+  return weekday >= 1 && weekday <= 5 && !HOLIDAYS[dateKey];
+};
 
 export interface Session {
   open: boolean;
   /** Timestamp del próximo cierre (si está abierta) o de la próxima apertura (si está cerrada). */
   nextChange: number;
+  /** Feriado del día, si la rueda está cerrada por eso. */
+  holiday?: string;
 }
 
 export function sessionAt(ms: number): Session {
-  const { weekday, minute, midnight } = art(ms);
-  if (isTradingDay(weekday) && minute >= OPEN_MINUTE && minute < CLOSE_MINUTE) {
+  const { minute, midnight } = art(ms);
+  if (isTradingDay(ms) && minute >= OPEN_MINUTE && minute < CLOSE_MINUTE) {
     return { open: true, nextChange: midnight + CLOSE_MINUTE * 60_000 };
   }
-  return { open: false, nextChange: nextOpen(ms) };
+  const holiday = holidayAt(ms);
+  return { open: false, nextChange: nextOpen(ms), ...(holiday ? { holiday } : {}) };
 }
 
-/** Próxima apertura estrictamente posterior a `ms`. */
+/** Próxima apertura estrictamente posterior a `ms` (saltea fines de semana y feriados). */
 export function nextOpen(ms: number): number {
   const { minute, midnight } = art(ms);
-  for (let i = 0; i < 8; i++) {
+  // Un fin de semana largo con feriados no supera las dos semanas.
+  for (let i = 0; i < 15; i++) {
     const day = midnight + i * DAY_MS;
-    const open = day + OPEN_MINUTE * 60_000;
-    if (isTradingDay(art(day + DAY_MS / 2).weekday) && (i > 0 || minute < OPEN_MINUTE)) return open;
+    if (isTradingDay(day + DAY_MS / 2) && (i > 0 || minute < OPEN_MINUTE)) return day + OPEN_MINUTE * 60_000;
   }
-  return midnight + 7 * DAY_MS + OPEN_MINUTE * 60_000;
+  return midnight + 15 * DAY_MS + OPEN_MINUTE * 60_000;
 }
 
 /**

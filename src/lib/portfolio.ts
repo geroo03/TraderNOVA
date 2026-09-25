@@ -1,5 +1,3 @@
-import { walk } from "./random";
-
 export type AssetClass = "CEDEAR" | "Acción" | "Bono";
 
 interface HoldingInput {
@@ -44,11 +42,6 @@ const raw: HoldingInput[] = [
 
 export const holdings: Holding[] = raw.map(valueHolding);
 
-export const equityCurve = {
-  portfolio: walk(11, 60, 134.75, 0.012, 0.006),
-  merval: walk(12, 60, 124.2, 0.014, 0.004),
-  mep: walk(13, 60, 108.35, 0.006, 0.0015),
-};
 
 export const accountBalances = {
   arsAvailable: 3_820_400,

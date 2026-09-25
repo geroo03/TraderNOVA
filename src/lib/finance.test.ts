@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { formatDecimal, formatPercent, splitAmount } from "./format";
-import { estimatedAmount } from "./orders";
+import { orderValue } from "./orders";
 import { valueHolding } from "./portfolio";
 import { movingAverage, toPoints } from "./chart-math";
 import { walk } from "./random";
@@ -19,9 +19,9 @@ describe("format (es-AR)", () => {
 });
 
 describe("montos de bonos (cotizan cada 100 VN)", () => {
-  it("estimatedAmount divide por 100 solo en bonos", () => {
-    expect(estimatedAmount({ instrument: "Bono USD", quantity: 1_000, limitPrice: 58.4 })).toBeCloseTo(584);
-    expect(estimatedAmount({ instrument: "Acción", quantity: 200, limitPrice: 4_820 })).toBe(964_000);
+  it("orderValue divide por 100 solo en bonos", () => {
+    expect(orderValue("AL30D", 1_000, 58.4, "buy").gross).toBeCloseTo(584);
+    expect(orderValue("GGAL", 200, 4_820, "buy").gross).toBe(964_000);
   });
   it("valueHolding aplica la misma regla y calcula la ganancia", () => {
     const h = valueHolding({ symbol: "AL30D", name: "", assetClass: "Bono", tag: "", quantity: 2_500, avgPrice: 48.5, lastPrice: 58.4, dayChangePct: 0, currency: "USD" });

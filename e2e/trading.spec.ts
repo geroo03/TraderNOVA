@@ -54,3 +54,11 @@ test("el modo simulación usa saldo virtual y se reinicia", async ({ page }) => 
   await page.getByRole("button", { name: "Reiniciar saldo" }).click();
   await expect(banner).toContainText("$10.000.000,00 de $10.000.000,00");
 });
+
+test("en simulación el dashboard mide el resultado contra el saldo virtual", async ({ page }) => {
+  await page.goto("/dashboard");
+  await expect(page.getByText("Rendimiento mensual")).toBeVisible();
+  await page.getByRole("switch", { name: "Modo simulación" }).click();
+  await expect(page.getByText("Resultado de la simulación")).toBeVisible();
+  await expect(page.getByText("contra el saldo virtual inicial")).toBeVisible();
+});
