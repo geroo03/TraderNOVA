@@ -1,0 +1,51 @@
+import { Card } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
+import { Icon } from "@/components/ui/Icon";
+import { formatInteger } from "@/lib/format";
+import { allocation } from "@/lib/mock-data";
+
+// Colores en el mismo orden que los segmentos de donut-allocation.svg.
+// Nota: en el Figma la leyenda de "CEDEARs USA" usa #adc6ff pero su segmento es
+// #4d8eff; acá se alinea la leyenda con el gráfico.
+const SEGMENT_COLORS = ["bg-primary-strong", "bg-positive", "bg-primary", "bg-negative"] as const;
+const PCT_COLORS = ["text-primary", "text-positive", "text-primary", "text-negative"] as const;
+
+export function AssetAllocation() {
+  const [largest] = [...allocation].sort((a, b) => b.pct - a.pct);
+
+  return (
+    <Card className="flex h-full flex-col gap-4 p-4">
+      <div className="flex items-center justify-between">
+        <h2 className="flex items-center gap-1 whitespace-nowrap text-base font-bold">
+          <Icon name="icon-pie" width={17} height={17} />
+          Distribución de Activos
+        </h2>
+        <Badge>Total 100%</Badge>
+      </div>
+
+      <figure className="relative mx-auto size-48 py-3">
+        <Icon name="donut-allocation" width={192} height={192} className="absolute inset-0" />
+        <figcaption className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-label uppercase text-fg-subtle">Activo mayor</span>
+          <span className="text-2xl font-bold tracking-[-0.36px]">{largest.pct}%</span>
+          <span className="text-label uppercase text-primary">CEDEARs</span>
+        </figcaption>
+      </figure>
+
+      <ul className="flex flex-col gap-1">
+        {allocation.map((slice, i) => (
+          <li key={slice.label} className="flex items-center justify-between rounded-lg bg-surface-high/60 p-1.5 text-xs">
+            <span className="flex items-center gap-2">
+              <span aria-hidden className={`size-2.5 rounded-full ${SEGMENT_COLORS[i]}`} />
+              {slice.label}
+            </span>
+            <span className="flex items-center gap-3 font-mono">
+              <span className="font-medium">${formatInteger(slice.amount)}</span>
+              <span className={`text-label w-8 text-right ${PCT_COLORS[i]}`}>{slice.pct}%</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
