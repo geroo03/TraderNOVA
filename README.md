@@ -56,7 +56,7 @@ Un guion de unos 5 minutos para mostrar la demo completa:
 
 | Ruta | Pantalla | Qué se puede hacer |
 | --- | --- | --- |
-| `/dashboard` | Dashboard | Patrimonio, resultado del día y poder de compra en vivo, en ARS o USD. Gráfico de rendimiento con 6 rangos, 3 benchmarks y valores al pasar el mouse. Distribución por clase de activo, mayores variaciones (de tu cartera o de todo el mercado) y órdenes recientes. Accesos rápidos a ingresar dinero, comprar MEP y colocar caución. |
+| `/dashboard` | Dashboard | Patrimonio, resultado del día, rendimiento mensual, YTD, alpha y poder de compra en vivo, en ARS o USD. Gráfico de rendimiento con 6 rangos, 3 benchmarks, valores al pasar el mouse y estadísticas del rango (máximo, drawdown, Sharpe y rendimiento anualizado). Distribución por clase de activo, mayores variaciones (de tu cartera o de todo el mercado) y órdenes recientes. Accesos rápidos a ingresar dinero, comprar MEP y colocar caución. |
 | `/cotizaciones` | Cotizaciones | Tabla por panel con filtro, favoritos, detalle con gráfico y libro de 5 puntas, alertas de precio y botones de compra y venta. Acepta `?panel=Bono&especie=AL30D`. |
 | `/mercados` | Mercados en vivo | Panel paginado por mercado, sector y plazo de liquidación (CI, 24 hs, 48 hs), watchlist, heatmap del Merval y compra de MEP. |
 | `/operar` | Boleta de operaciones | Compra y venta límite, a mercado y stop límite, con desglose de aranceles, stop loss y take profit, gráfico de velas con líneas arrastrables, libro de ofertas clickeable y caudal en vivo. Acepta `?especie=GGAL&lado=venta`. |
@@ -72,7 +72,7 @@ Un guion de unos 5 minutos para mostrar la demo completa:
 
 | Ruta | Pantalla | Qué se puede hacer |
 | --- | --- | --- |
-| `/admin` | Consola de control | KPIs del broker, altas diarias, volumen por hora, alertas operativas, actividad de la mesa, refresco de la sesión DMA y reporte CNV. |
+| `/admin` | Consola de control | KPIs del broker (comitentes activos, altas y volumen reflejan lo que pasa en la demo), altas diarias, volumen por hora, alertas operativas, actividad de la mesa, refresco de la sesión DMA y reporte CNV. |
 | `/admin/usuarios` | Usuarios y cuentas | Padrón de comitentes con filtros y búsqueda (`?q=`), legajo digital, aprobación, bloqueo (bloquear al inversor de la demo le restringe la app), pedido de información, alta manual y exportación del padrón. |
 | `/admin/kyc` | KYC y validación | La misma vista que Usuarios, filtrada en la cola de KYC pendientes. |
 | `/admin/ordenes` | Libro de órdenes | Órdenes de todos los comitentes, incluidas las del inversor de la demo. Filtra rechazos con su motivo, cancela órdenes abiertas y exporta. |
@@ -127,7 +127,8 @@ flowchart LR
 
 ### Horario de rueda
 
-- `src/lib/session.ts` calcula si la rueda está abierta: lunes a viernes de 11:00 a 17:00, hora de Argentina (UTC−3 fijo, sin horario de verano). No contempla feriados.
+- `src/lib/session.ts` calcula si la rueda está abierta: lunes a viernes hábiles de 11:00 a 17:00, hora de Argentina (UTC−3 fijo, sin horario de verano).
+- **Feriados**: `src/lib/holidays.ts` tiene los feriados nacionales de 2026 y 2027 que caen en días hábiles (Ley 27.399, con los trasladables ya movidos) y el Jueves Santo. En un feriado el aviso muestra el motivo y la próxima apertura saltea el fin de semana largo. No incluye los días no laborables con fines turísticos, que se decretan cada año.
 - Un reloj compartido (`src/lib/store/clock.ts`) se actualiza cada 15 s sin leer la hora durante el render. En el servidor no hay hora y la rueda se muestra abierta; el cliente corrige al hidratar. Mientras la hora no se conoce, el motor no ejecuta órdenes reales.
 - **Rueda cerrada**: el feed se detiene, no hay órdenes a mercado y las órdenes límite se cargan para la próxima rueda.
 - **La simulación opera 24/7**: con el modo simulación activo el feed se mueve y las órdenes simuladas se ejecutan aunque la rueda esté cerrada.
@@ -148,6 +149,14 @@ flowchart LR
 - Cuando se ejecuta una compra con **stop loss y take profit**, el bracket queda activo. Si el precio toca el stop o el target, se genera la orden de venta, se calcula el resultado y se notifica.
 - Cada ejecución dispara un aviso y una notificación.
 - Si no hubo cambios, el motor devuelve la misma lista y no escribe nada.
+
+### Rendimiento histórico
+
+- La demo no tiene historia real, así que `src/lib/performance.ts` genera una serie por rango (1D a MAX) con semilla fija que termina en el patrimonio actual. El Merval y el MEP salen de un puente geométrico: arrancan en el mismo punto que la cartera y terminan en una fracción de su crecimiento.
+- De esas series salen el rendimiento mensual, el YTD y el alpha del dashboard, las estadísticas del gráfico y la curva de Tenencia. Por eso todas las cifras coinciden.
+- Las semillas están calibradas para dar valores creíbles en pesos (Sharpe ~1 a 2,5, anualizado ~20% a 60%). Un test lo verifica.
+- El Sharpe y el rendimiento anualizado solo se muestran en rangos de un mes o más.
+- En modo simulación, el rendimiento se mide contra el saldo virtual inicial.
 
 ### Saldo y tenencia calculados
 
@@ -204,7 +213,7 @@ vendible   = tenencia − nominales comprometidos en ventas abiertas
 | Precio fuera de rango | Si el precio límite se aleja más de 5% del mercado, avisa y exige confirmar. | `lib/bracket.ts` |
 | Stop y target | Solo en compras. El stop va debajo de la entrada y el target arriba. Hay 3 plantillas: −1%/+2%, −2%/+4% y −3%/+9%. | `lib/bracket.ts` |
 | Plazo de liquidación | En Mercados, CI cotiza 0,25% por debajo de 24 hs y 48 hs 0,15% por encima. | `MarketsView` |
-| Horario de rueda | Lunes a viernes de 11 a 17 hs (hora argentina). Fuera de horario: sin órdenes a mercado; las límite quedan para la próxima rueda. | `lib/session.ts` |
+| Horario de rueda | Lunes a viernes hábiles de 11 a 17 hs (hora argentina), sin feriados nacionales. Fuera de horario: sin órdenes a mercado; las límite quedan para la próxima rueda. | `lib/session.ts`, `lib/holidays.ts` |
 | Órdenes del día | Las órdenes reales vencen al cierre de su rueda y liberan los fondos reservados. Las simuladas no vencen. | `expireOrders` |
 | Estado de la cuenta | Si Compliance bloquea al comitente o su legajo vuelve a KYC, no puede operar, retirar, comprar MEP ni colocar caución (sí depositar y usar la simulación). | `useInvestorRestriction` |
 | Retiros | Hasta $1.000.000 o U$S 1.000 se transfieren solos (STP, ~10 s). Los mayores quedan "En proceso" hasta que Tesorería los apruebe o rechace. | `MoneyDialogs` |
@@ -277,7 +286,7 @@ Hay que correrlo cada vez que se usa un ícono nuevo; si no, TypeScript marca el
 npm test
 ```
 
-Hay 35 tests en 5 archivos, todos sobre la lógica pura de `src/lib`:
+Hay 43 tests en 6 archivos, todos sobre la lógica pura de `src/lib`:
 
 | Archivo | Qué cubre |
 | --- | --- |
@@ -285,7 +294,8 @@ Hay 35 tests en 5 archivos, todos sobre la lógica pura de `src/lib`:
 | `finance.test.ts` | Formato es-AR, montos de bonos cada 100 VN, valuación de posiciones y matemática de gráficos. |
 | `bracket.test.ts` | Cálculo y validación de stop y target, riesgo/beneficio y desvío contra el mercado. |
 | `trading.test.ts` | Saldo inicial igual al del Figma, reservas, PPC, bonos en USD, ventas, depósitos y retiros; motor de ejecución (límite, stop, bracket, take profit, parciales, simulación) y vencimiento de órdenes. |
-| `session.test.ts` | Horario de BYMA, próxima apertura (incluido el fin de semana), vencimiento de órdenes del día y textos de horario. |
+| `session.test.ts` | Horario de BYMA, feriados (trasladables, Semana Santa, fines de semana largos), próxima apertura, vencimiento de órdenes del día y textos de horario. |
+| `performance.test.ts` | Series de rendimiento determinísticas que terminan en el patrimonio, benchmarks, máximo, drawdown, anualización y calibración de valores creíbles. |
 
 ### De punta a punta (Playwright)
 
@@ -295,14 +305,14 @@ npm run e2e                       # compila y corre las pruebas
 PW_CHANNEL=chrome npm run e2e     # alternativa: usar el Chrome instalado
 ```
 
-Hay 37 pruebas en `e2e/` que corren contra el build de producción. Cada una arranca con el almacenamiento limpio y falla si la página muestra errores de consola.
+Hay 39 pruebas en `e2e/` que corren contra el build de producción. Cada una arranca con el almacenamiento limpio y falla si la página muestra errores de consola.
 
 | Archivo | Qué cubre |
 | --- | --- |
 | `smoke.spec.ts` | Las 23 rutas cargan sin errores, el buscador ⌘K y el tema claro persistente. |
-| `trading.spec.ts` | Compra que se ejecuta en el acto y persiste al recargar, venta sin tenencia bloqueada, stop/target que se disparan solos y modo simulación. |
+| `trading.spec.ts` | Compra que se ejecuta en el acto y persiste al recargar, venta sin tenencia bloqueada, stop/target que se disparan solos, modo simulación y KPIs del dashboard en simulación. |
 | `flows.spec.ts` | Depósito que se acredita, retiro grande aprobado por Tesorería, bloqueo del inversor por Compliance, ticket inversor ↔ staff y log de auditoría. |
-| `session.spec.ts` | Con reloj fijo en sábado: mercado cerrado, órdenes para la próxima rueda, rueda de demostración y que no se ejecute nada al cargar. |
+| `session.spec.ts` | Con reloj fijo en sábado y en un feriado: mercado cerrado con su motivo, órdenes para la próxima rueda, rueda de demostración y que no se ejecute nada al cargar. |
 
 ### Integración continua
 
@@ -330,7 +340,7 @@ src/
 │   ├── trading/                TradingProvider, boleta, libro, caudal, gráfico con líneas y dibujos, órdenes
 │   ├── dashboard/              KPIs, rendimiento, distribución, variaciones, insight, órdenes recientes
 │   ├── markets/                Cotizaciones, mercados, alertas de precio
-│   ├── portfolio/              Tenencia en vivo (usePortfolio), tabla de posiciones, curva
+│   ├── portfolio/              Tenencia en vivo (usePortfolio), rendimiento (usePerformance), posiciones, curva
 │   ├── accounts/               Saldos, cuentas vinculadas, ventanas de dinero, movimientos
 │   ├── journal/                Diario de trading e informe fiscal
 │   ├── settings/  support/     Ajustes y centro de ayuda
@@ -339,7 +349,8 @@ src/
 │   └── Providers.tsx           Providers globales (avisos flotantes y tema)
 ├── lib/
 │   ├── trading.ts              Órdenes, saldo calculado, motor de ejecución y vencimientos (funciones puras)
-│   ├── session.ts              Horario de rueda de BYMA
+│   ├── session.ts  holidays.ts Horario de rueda de BYMA y feriados nacionales
+│   ├── performance.ts          Series de rendimiento sintéticas y estadísticas (Sharpe, drawdown)
 │   ├── bracket.ts              Stop loss / take profit, plantillas, riesgo
 │   ├── order-costs.ts          Aranceles en centavos enteros
 │   ├── orders.ts               Montos por especie (bonos cada 100 VN)
@@ -418,7 +429,8 @@ scripts/sync-icons.mjs          Sincronización de íconos
 | Precios | `MarketProvider` simulado | Feed real por WebSocket o SSE con la misma interfaz (`quote`, `tape`) |
 | Ejecución | El motor corre en el navegador | Ruteo al mercado (FIX/DMA); stop y target como órdenes vinculadas (OCO) |
 | Permisos staff | La matriz de roles es visual | Aplicarla en el backend |
-| Calendario | El horario de rueda no contempla feriados | Calendario de días hábiles de BYMA |
+| Calendario | Feriados nacionales 2026–2027 cargados a mano | Calendario oficial de días hábiles de BYMA (incluye días no laborables) |
+| Rendimiento histórico | Series sintéticas calibradas | Historia real de la cuenta (valuaciones diarias y flujos de fondos) |
 | Carga de archivos | La validación del DNI es solo del lado del cliente | El servidor tiene que revalidar tipo real, tamaño y escanear el archivo |
 | Reportes | CSV/TXT generados en el navegador | Formatos oficiales de CNV, UIF y BCRA firmados por el backend |
 
