@@ -79,3 +79,9 @@ export const recentOrders: Order[] = [
 ];
 
 export const caucion = { tna: 34.5, availableToPlace: 1_800_000 } as const;
+
+export const staffUser = {
+  fullName: "Martín Benítez",
+  initials: "MB",
+  role: "Oficial de Cumplimiento",
+} as const;

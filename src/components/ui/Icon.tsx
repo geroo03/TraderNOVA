@@ -9,9 +9,7 @@ export type IconName =
   | "icon-exchange" | "performance-chart" | "icon-pie" | "donut-allocation" | "icon-bolt"
   | "icon-arrow-right-sm" | "icon-sparkles" | "icon-check-circle" | "icon-arrow-right-dark"
   | "icon-wallet" | "icon-receipt" | "icon-arrow-right-link" | "icon-lock-small"
-  | "icon-search" | "icon-chevron-down" | "icon-bell" | "icon-moon" | "icon-user"
-  | "icon-verified" | "nav-quotes" | "nav-holdings" | "nav-trade" | "nav-orders"
-  | "nav-accounts" | "nav-analytics" | "nav-settings" | "nav-support" | "nav-collapse";
+  | "icon-search" | "icon-bell" | "icon-moon" | "icon-user" | "icon-verified";
 
 interface IconProps {
   name: IconName;
