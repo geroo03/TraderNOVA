@@ -7,7 +7,10 @@ import { Card } from "@/components/ui/Card";
 import { MsIcon } from "@/components/ui/MsIcon";
 import type { MsIconName } from "@/components/ui/ms-icon-names";
 import { Panel, table } from "@/components/ui/Page";
-import { clients as seed, type Client, type ClientStatus } from "@/lib/admin-data";
+import type { ClientStatus } from "@/lib/admin-data";
+import { useToast } from "@/components/ui/Toast";
+import { pushAudit, useClientsStore } from "@/lib/store/hooks";
+import { staffUser } from "@/lib/mock-data";
 import { formatDecimal } from "@/lib/format";
 
 const statusView: Record<ClientStatus, { label: string; tone: Tone }> = {
@@ -25,11 +28,14 @@ const DOCS: { label: string; icon: MsIconName }[] = [
   { label: "Prueba de vida", icon: "face" },
 ];
 
-export function ClientsView({ initialFilter = "all" }: { initialFilter?: Filter }) {
-  const [list, setList] = useState<Client[]>(seed);
+export function ClientsView({ initialFilter = "all", initialQuery = "" }: { initialFilter?: Filter; initialQuery?: string }) {
+  const toast = useToast();
+  const [list, setList] = useClientsStore();
   const [filter, setFilter] = useState<Filter>(initialFilter);
-  const [query, setQuery] = useState("");
-  const [selectedId, setSelectedId] = useState<string>(list.find((c) => initialFilter === "all" || c.status === initialFilter)?.id ?? list[0].id);
+  const [query, setQuery] = useState(initialQuery);
+  const [pickedId, setSelectedId] = useState<string | null>(null);
+  // Sin selección explícita se muestra el primero que coincide con el filtro/búsqueda.
+  const selectedId = pickedId ?? list.find((c) => (initialFilter === "all" || c.status === initialFilter) && (!initialQuery || c.name === initialQuery))?.id ?? list[0]?.id;
   const [note, setNote] = useState<string | null>(null);
 
   const rows = useMemo(() => {
@@ -43,8 +49,11 @@ export function ClientsView({ initialFilter = "all" }: { initialFilter?: Filter 
   const count = (s: ClientStatus) => list.filter((c) => c.status === s).length;
 
   function setStatus(id: string, status: ClientStatus, msg: string) {
-    setList((prev) => prev.map((c) => (c.id === id ? { ...c, status, alert: status === "activo" ? undefined : c.alert } : c)));
+    const c = list.find((x) => x.id === id);
+    setList((prev) => prev.map((x) => (x.id === id ? { ...x, status, alert: status === "activo" ? undefined : x.alert } : x)));
     setNote(msg);
+    toast({ title: status === "activo" ? "Comitente aprobado" : "Comitente bloqueado", text: c?.name, tone: status === "activo" ? "positive" : "negative" });
+    pushAudit({ who: staffUser.fullName, role: "Compliance", action: status === "activo" ? "Aprobación de legajo KYC" : "Bloqueo de comitente", ref: c?.account ?? id, detail: msg });
   }
 
   return (
@@ -78,7 +87,7 @@ export function ClientsView({ initialFilter = "all" }: { initialFilter?: Filter 
         </div>
       </div>
 
-      <div className="grid gap-4 2xl:grid-cols-[minmax(0,1fr)_420px]">
+      <div className="grid grid-cols-1 gap-4 2xl:grid-cols-[minmax(0,1fr)_420px]">
         <Panel title="Registro maestro de comitentes" subtitle="BYMA / MAE · padrón sincronizado con Caja de Valores" className="min-w-0">
           <div className={table.wrap}>
             <table className={`${table.table} min-w-[820px]`}>
@@ -146,7 +155,7 @@ export function ClientsView({ initialFilter = "all" }: { initialFilter?: Filter 
               </tbody>
             </table>
           </div>
-          <p className="pt-3 text-xs text-fg-subtle">Mostrando {rows.length} de 18.420 comitentes (muestra de demo)</p>
+          <p className="pt-3 text-xs text-fg-subtle">Mostrando {rows.length} de {list.length} comitentes de la muestra (padrón real: 18.420)</p>
         </Panel>
 
         {selected && (
@@ -220,7 +229,15 @@ export function ClientsView({ initialFilter = "all" }: { initialFilter?: Filter 
               <Button variant="buy" icon="check" disabled={selected.status === "activo"} onClick={() => setStatus(selected.id, "activo", `${selected.name} aprobado y habilitado para operar.`)}>
                 Aprobar comitente
               </Button>
-              <Button variant="secondary" icon="mail" onClick={() => setNote(`Se envió pedido de información a ${selected.email} (demo).`)}>
+              <Button
+                variant="secondary"
+                icon="mail"
+                onClick={() => {
+                  setNote(`Se envió pedido de información a ${selected.email} (demo).`);
+                  toast({ title: "Pedido de información enviado", text: selected.email, tone: "primary" });
+                  pushAudit({ who: staffUser.fullName, role: "Compliance", action: "Pedido de información", ref: selected.account, detail: `Mail a ${selected.email}` });
+                }}
+              >
                 Pedir información
               </Button>
               <Button variant="danger" icon="block" className="col-span-2" disabled={selected.status === "bloqueado"} onClick={() => setStatus(selected.id, "bloqueado", `${selected.name} bloqueado. Quedó registrado en el log de auditoría (demo).`)}>

@@ -6,20 +6,27 @@ import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Icon } from "@/components/ui/Icon";
 import { Change } from "@/components/ui/Amount";
+import { flashClass, useMarket } from "@/components/market/MarketProvider";
+import { usePortfolio } from "@/components/portfolio/usePortfolio";
 import { formatDecimal } from "@/lib/format";
-import { portfolioAssetCount, topMovers } from "@/lib/mock-data";
-import type { Mover } from "@/lib/types";
+import type { Instrument } from "@/lib/market-data";
 
 type Scope = "portfolio" | "market";
 
-function initialsColor(m: Mover): string {
-  if (m.changePct < 0) return "text-negative";
-  return m.tag.startsWith("CEDEAR") ? "text-primary" : "text-positive";
+function tagOf(i: Instrument): { tag: string; tone: "positive" | "muted" } {
+  if (i.board === "CEDEAR") return { tag: `CEDEAR ${i.ratio ?? ""}`.trim(), tone: "muted" };
+  if (i.board === "Bono") return { tag: "BONO USD", tone: "muted" };
+  return { tag: i.volumeM > 2_000 ? "BYMA LÍDER" : "BYMA", tone: i.volumeM > 2_000 ? "positive" : "muted" };
 }
 
+/** Mayores variaciones en vivo: de tu cartera o de todo el mercado. */
 export function TopMovers() {
-  // TODO: la pestaña "Mercado" necesita su propio endpoint; hoy muestra la misma lista.
   const [scope, setScope] = useState<Scope>("portfolio");
+  const { quotes, moves } = useMarket();
+  const { holdings } = usePortfolio();
+  const owned = new Set(holdings.map((h) => h.symbol));
+  const universe = scope === "portfolio" ? quotes.filter((q) => owned.has(q.symbol)) : quotes;
+  const list = [...universe].sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct)).slice(0, 5);
 
   return (
     <Card className="flex h-full flex-col p-4">
@@ -50,27 +57,31 @@ export function TopMovers() {
       <p className="text-xs text-fg-subtle">Precios y variaciones intradía en tiempo real</p>
 
       <ul className="flex flex-col gap-1.5 pt-2.5">
-        {topMovers.map((m) => {
+        {list.map((m) => {
           const up = m.changePct >= 0;
+          const t = tagOf(m);
           return (
             <li key={m.symbol} className="flex items-center justify-between rounded-lg bg-surface-high p-2">
-              <div className="flex items-center gap-2">
-                <span className={`flex size-8 items-center justify-center rounded bg-surface-lowest font-mono text-xs font-semibold ${initialsColor(m)}`}>
-                  {m.initials}
+              <div className="flex min-w-0 items-center gap-2">
+                <span className={`flex size-8 shrink-0 items-center justify-center rounded bg-surface-lowest font-mono text-xs font-semibold ${up ? (m.board === "CEDEAR" ? "text-primary" : "text-positive") : "text-negative"}`}>
+                  {m.symbol.slice(0, 2)}
                 </span>
-                <div>
+                <div className="min-w-0">
                   <p className="flex items-center gap-1.5">
                     <span className="font-mono text-sm font-semibold">{m.symbol}</span>
-                    <Badge tone={m.tagTone === "positive" ? "positive" : "muted"} className="py-0">
-                      {m.tag}
+                    <Badge tone={t.tone} className="py-0">
+                      {t.tag}
                     </Badge>
                   </p>
-                  <p className="text-xs text-fg-subtle">{m.name}</p>
+                  <p className="truncate text-xs text-fg-subtle">{m.name}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <div className="text-right font-mono">
-                  <p className="text-sm font-semibold">${formatDecimal(m.price)}</p>
+                <div key={m.price} className={`rounded px-1 text-right font-mono ${flashClass(moves[m.symbol])}`}>
+                  <p className="text-sm font-semibold">
+                    {m.currency === "USD" ? "U$S " : "$"}
+                    {formatDecimal(m.price)}
+                  </p>
                   <Change value={m.changePct} className="text-xs font-medium" />
                 </div>
                 <Link
@@ -83,11 +94,12 @@ export function TopMovers() {
             </li>
           );
         })}
+        {list.length === 0 && <li className="p-4 text-center text-xs text-fg-subtle">Todavía no tenés posiciones.</li>}
       </ul>
 
       <div className="mt-auto flex items-center justify-between pt-3">
         <span className="text-label text-fg-subtle">
-          {topMovers.length} de {portfolioAssetCount} activos en cartera
+          {scope === "portfolio" ? `${list.length} de ${holdings.length} activos en cartera` : `Top 5 de ${quotes.length} especies`}
         </span>
         <Link href="/cotizaciones" className="flex items-center gap-1 text-xs text-primary hover:underline">
           Ver todas las cotizaciones

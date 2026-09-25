@@ -15,11 +15,20 @@ const W = 800;
 const PRICE_H = 300;
 const VOL_H = 60;
 
-/** Velas japonesas + volumen en SVG. Verde = cierre ≥ apertura. */
-export function CandleChart({ data, averages = [], showVolume = true, lastPriceLine = true, className = "", label }: CandleChartProps) {
-  const height = PRICE_H + (showVolume ? VOL_H + 8 : 0);
+/**
+ * Escala vertical del gráfico: rango de precios y fracción de la altura que ocupan las velas.
+ * Se exporta para poder superponer elementos HTML alineados con el SVG.
+ */
+export function candleScale(data: Ohlc[], showVolume = true) {
   const lo = Math.min(...data.map((d) => d.low));
   const hi = Math.max(...data.map((d) => d.high));
+  const height = PRICE_H + (showVolume ? VOL_H + 8 : 0);
+  return { lo, hi, height, priceFraction: PRICE_H / height };
+}
+
+/** Velas japonesas + volumen en SVG. Verde = cierre ≥ apertura. */
+export function CandleChart({ data, averages = [], showVolume = true, lastPriceLine = true, className = "", label }: CandleChartProps) {
+  const { lo, hi, height } = candleScale(data, showVolume);
   const span = hi - lo || 1;
   const y = (v: number) => PRICE_H - ((v - lo) / span) * PRICE_H;
   const slot = W / data.length;

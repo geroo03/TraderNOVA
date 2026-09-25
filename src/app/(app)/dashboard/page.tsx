@@ -14,7 +14,7 @@ export default function DashboardPage() {
       <h1 className="sr-only">Dashboard general</h1>
       <KpiCards />
       <PerformanceChart />
-      <div className="grid gap-4 xl:grid-cols-12">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
         <div className="xl:col-span-4">
           <AssetAllocation />
         </div>

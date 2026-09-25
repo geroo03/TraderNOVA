@@ -1,4 +1,9 @@
+"use client";
+
+import Link from "next/link";
+import { useState } from "react";
 import { Badge } from "@/components/ui/Badge";
+import { MoneyDialog } from "@/components/accounts/MoneyDialogs";
 import { Card } from "@/components/ui/Card";
 import { Icon } from "@/components/ui/Icon";
 import { formatDecimal, formatInteger } from "@/lib/format";
@@ -29,18 +34,19 @@ export function NovaInsight() {
           Sugerencia: Diversificar en ONs hard dollar (YMCIO / YCA6O).
         </p>
       </div>
-      <button
-        type="button"
+      <Link
+        href="/cotizaciones?panel=Bono&especie=YMCIO"
         className="relative mt-3 flex w-full items-center justify-center gap-1 rounded-lg bg-primary-strong px-3 py-2 text-xs font-semibold text-on-primary hover:opacity-90"
       >
         Explorar ONs recomendadas
         <Icon name="icon-arrow-right-dark" width={11} height={11} />
-      </button>
+      </Link>
     </Card>
   );
 }
 
 export function CaucionCard() {
+  const [open, setOpen] = useState(false);
   return (
     <Card className="flex flex-col gap-2 p-3">
       <div className="flex items-center justify-between">
@@ -53,10 +59,11 @@ export function CaucionCard() {
       <p className="text-xs text-fg-subtle">Rentabilizá tus pesos no invertidos a 1 día hábil de forma automática.</p>
       <div className="flex items-center justify-between pt-1">
         <p className="text-label text-fg">Disponible para colocar: ${formatInteger(caucion.availableToPlace)}</p>
-        <button type="button" className="text-label rounded bg-surface-higher px-2 py-1 text-fg hover:bg-surface-highest">
+        <button type="button" onClick={() => setOpen(true)} className="text-label rounded bg-surface-higher px-2 py-1 text-fg hover:bg-surface-highest">
           Colocar T+1
         </button>
       </div>
+      <MoneyDialog action="caucion" open={open} onClose={() => setOpen(false)} />
     </Card>
   );
 }

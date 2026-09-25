@@ -6,38 +6,42 @@ import { ButtonLink } from "@/components/ui/Button";
 import { Change } from "@/components/ui/Amount";
 import { table } from "@/components/ui/Page";
 import { Tabs } from "@/components/ui/Tabs";
+import { flashClass, useMarket } from "@/components/market/MarketProvider";
 import { formatDecimal, formatInteger, formatPercent } from "@/lib/format";
-import { holdings, type AssetClass, type Holding } from "@/lib/portfolio";
+import { downloadFile, stamp, toCsv } from "@/lib/download";
+import type { AssetClass, Holding } from "@/lib/portfolio";
+import { usePortfolio } from "./usePortfolio";
 
 type Filter = "all" | AssetClass;
+type Sort = "valuation" | "gainPct" | "dayChangePct";
 
 function money(h: Holding, v: number) {
   return `${h.currency === "USD" ? "U$S " : "$"}${formatDecimal(v)}`;
 }
 
-function toCsv(rows: Holding[]): string {
-  const header = "especie,clase,cantidad,ppc,ultimo,valuacion,ganancia,ganancia_pct,moneda";
-  const lines = rows.map((h) =>
-    [h.symbol, h.assetClass, h.quantity, h.avgPrice, h.lastPrice, h.valuation.toFixed(2), h.gain.toFixed(2), h.gainPct.toFixed(2), h.currency].join(","),
-  );
-  return [header, ...lines].join("\n");
-}
-
 export function HoldingsTable() {
+  const { holdings } = usePortfolio();
+  const { moves } = useMarket();
   const [filter, setFilter] = useState<Filter>("all");
-  const rows = holdings.filter((h) => filter === "all" || h.assetClass === filter);
+  const [sort, setSort] = useState<Sort>("valuation");
+  const rows = holdings.filter((h) => filter === "all" || h.assetClass === filter).sort((a, b) => b[sort] - a[sort]);
   const count = (c: AssetClass) => holdings.filter((h) => h.assetClass === c).length;
 
   function exportCsv() {
-    // Descarga generada en el navegador; no pasa por ningún servidor.
-    const blob = new Blob([toCsv(rows)], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "tenencia-nodo.csv";
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadFile(
+      `tenencia-nodo_${stamp()}.csv`,
+      toCsv(
+        ["especie", "clase", "cantidad", "ppc", "ultimo", "valuacion", "ganancia", "ganancia_pct", "moneda"],
+        rows.map((h) => [h.symbol, h.assetClass, h.quantity, h.avgPrice.toFixed(2), h.lastPrice, h.valuation.toFixed(2), h.gain.toFixed(2), h.gainPct.toFixed(2), h.currency]),
+      ),
+    );
   }
+
+  const sortHeader = (id: Sort, label: string) => (
+    <button type="button" onClick={() => setSort(id)} className={`uppercase ${sort === id ? "text-primary" : ""}`} aria-pressed={sort === id}>
+      {label} {sort === id ? "↓" : ""}
+    </button>
+  );
 
   return (
     <div className="flex flex-col gap-3">
@@ -60,9 +64,9 @@ export function HoldingsTable() {
               <th className={`${table.th} text-right`}>Cantidad</th>
               <th className={`${table.th} text-right`}>PPC</th>
               <th className={`${table.th} text-right`}>Último</th>
-              <th className={`${table.th} text-right`}>Valuación</th>
-              <th className={`${table.th} text-right`}>Var. hoy</th>
-              <th className={`${table.th} text-right`}>Ganancia total</th>
+              <th className={`${table.th} text-right`}>{sortHeader("valuation", "Valuación")}</th>
+              <th className={`${table.th} text-right`}>{sortHeader("dayChangePct", "Var. hoy")}</th>
+              <th className={`${table.th} text-right`}>{sortHeader("gainPct", "Ganancia total")}</th>
               <th className={`${table.th} text-right`}>Acciones</th>
             </tr>
           </thead>
@@ -82,7 +86,7 @@ export function HoldingsTable() {
                 </td>
                 <td className={`${table.td} text-right font-mono`}>{formatInteger(h.quantity)}</td>
                 <td className={`${table.td} text-right font-mono`}>{money(h, h.avgPrice)}</td>
-                <td className={`${table.td} text-right font-mono`}>{money(h, h.lastPrice)}</td>
+                <td key={h.lastPrice} className={`${table.td} text-right font-mono ${flashClass(moves[h.symbol])}`}>{money(h, h.lastPrice)}</td>
                 <td className={`${table.td} text-right font-mono font-semibold`}>{money(h, h.valuation)}</td>
                 <td className={`${table.td} text-right font-mono`}>
                   <Change value={h.dayChangePct} />
@@ -106,12 +110,19 @@ export function HoldingsTable() {
                 </td>
               </tr>
             ))}
+            {rows.length === 0 && (
+              <tr>
+                <td colSpan={8} className="p-6 text-center text-xs text-fg-subtle">
+                  Sin posiciones en esta clase de activo.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-fg-subtle">
         <span>
-          Mostrando {rows.length} de {holdings.length} posiciones · Valuación según cotizaciones CI / 24hs BYMA
+          Mostrando {rows.length} de {holdings.length} posiciones · Valuación en vivo con el feed BYMA (demo)
         </span>
         <span className="flex gap-2">
           <ButtonLink href="/cuentas" variant="ghost" size="sm" icon="history">

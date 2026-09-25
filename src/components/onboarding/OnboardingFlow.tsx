@@ -138,7 +138,7 @@ export function OnboardingFlow() {
       )}
 
       {step === 1 && (
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
           <div className="flex flex-col gap-4">
             <div>
               <p className="text-label uppercase text-fg-subtle">Identificación obligatoria CNV · UIF</p>

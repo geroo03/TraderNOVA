@@ -1,16 +1,19 @@
 import type { Metadata } from "next";
-import { ComingSoon } from "@/components/ui/ComingSoon";
+import { RiskView } from "@/components/admin/RiskView";
+import { Badge } from "@/components/ui/Badge";
+import { PageHeader } from "@/components/ui/Page";
 
 export const metadata: Metadata = { title: "Límites & Riesgo" };
 
 export default function Page() {
   return (
-    <ComingSoon
-      icon="shield"
-      title="Límites & Riesgo"
-      description="Configuración de límites de exposición, márgenes de caución y alertas de riesgo por comitente. Esta sección todavía no tiene diseño en el Figma."
-      backHref="/admin"
-      backLabel="Volver a la consola"
-    />
+    <div className="flex flex-col gap-4">
+      <PageHeader
+        eyebrow={<Badge className="uppercase">Control & Regulatorio</Badge>}
+        title="Límites & Riesgo"
+        description="Límites de exposición por comitente, aforos de caución, apalancamiento y parámetros globales. Cada cambio queda auditado."
+      />
+      <RiskView />
+    </div>
   );
 }

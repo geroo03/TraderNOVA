@@ -54,3 +54,58 @@
     outline-offset: 2px;
   }
 }
+
+/* Destello breve al cambiar un precio en vivo. */
+@keyframes flash-up {
+  from { background-color: rgb(78 222 163 / 0.25); }
+  to { background-color: transparent; }
+}
+@keyframes flash-down {
+  from { background-color: rgb(255 84 81 / 0.25); }
+  to { background-color: transparent; }
+}
+@utility animate-flash-up {
+  animation: flash-up 0.9s ease-out;
+}
+@utility animate-flash-down {
+  animation: flash-down 0.9s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-flash-up,
+  .animate-flash-down {
+    animation: none;
+  }
+}
+
+/* Tema claro (opcional, desde la barra superior o Ajustes). Redefine los mismos tokens. */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --color-bg: #f4f6fa;
+  --color-surface-lowest: #eceff5;
+  --color-surface: #ffffff;
+  --color-surface-high: #f1f3f8;
+  --color-surface-higher: #e4e8f0;
+  --color-surface-highest: #d6dce7;
+
+  --color-fg: #141922;
+  --color-fg-muted: #3a4150;
+  --color-fg-subtle: #646c7c;
+  --color-outline: #c2c8d3;
+
+  --color-primary: #1f5fd6;
+  --color-primary-strong: #2f6fe4;
+  --color-on-primary: #ffffff;
+  --color-on-primary-strong: #ffffff;
+  --color-positive: #0b8a5d;
+  --color-on-positive: #ffffff;
+  --color-negative: #c9302c;
+  --color-alert: #e5484d;
+
+  --shadow-card: 0px 1px 3px rgb(20 25 34 / 0.08), 0px 1px 2px rgb(20 25 34 / 0.04);
+}
+
+/* Los íconos exportados de Figma son claros (pensados para fondo oscuro): se oscurecen en tema claro. */
+:root[data-theme="light"] img[src*="/figma/icon-"],
+:root[data-theme="light"] img[src*="/figma/kpi-"] {
+  filter: brightness(0.55) saturate(1.3);
+}

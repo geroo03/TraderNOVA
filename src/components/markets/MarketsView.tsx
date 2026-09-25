@@ -10,10 +10,15 @@ import { Panel, table } from "@/components/ui/Page";
 import { Tabs } from "@/components/ui/Tabs";
 import { Change } from "@/components/ui/Amount";
 import { formatDecimal } from "@/lib/format";
-import { instruments, intradaySeries, type Board } from "@/lib/market-data";
+import { intradaySeries, type Board } from "@/lib/market-data";
+import { flashClass, useMarket } from "@/components/market/MarketProvider";
+import { MoneyActionButton } from "@/components/accounts/MoneyDialogs";
+import { useWatchlistStore } from "@/lib/store/hooks";
 
 const PAGE_SIZE = 6;
 const TERMS = ["CI", "24 HS", "48 HS"] as const;
+/** Diferencial de precio por plazo de liquidación (CI cotiza apenas por debajo de 24 hs). */
+const TERM_FACTOR: Record<(typeof TERMS)[number], number> = { CI: 0.9975, "24 HS": 1, "48 HS": 1.0015 };
 
 function heatColor(pct: number): string {
   // Intensidad proporcional a la variación, con tope en ±4%.
@@ -22,14 +27,16 @@ function heatColor(pct: number): string {
 }
 
 export function MarketsView() {
+  const { quotes: instruments, moves } = useMarket();
   const [board, setBoard] = useState<Board>("Panel Líder");
   const [term, setTerm] = useState<(typeof TERMS)[number]>("24 HS");
   const [sector, setSector] = useState("Todos");
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
-  const [watch, setWatch] = useState<string[]>(["GGAL", "YPFD", "BMA", "ALUA", "EDN"]);
+  const [watch, setWatch] = useWatchlistStore();
+  const k = TERM_FACTOR[term];
 
-  const boardItems = useMemo(() => instruments.filter((i) => i.board === board), [board]);
+  const boardItems = useMemo(() => instruments.filter((i) => i.board === board), [board, instruments]);
   const sectors = ["Todos", ...new Set(boardItems.map((i) => i.sector))];
 
   const rows = useMemo(() => {
@@ -55,7 +62,7 @@ export function MarketsView() {
   }
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+    <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
       <div className="flex min-w-0 flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Tabs
@@ -140,9 +147,9 @@ export function MarketsView() {
                       </Link>
                     </td>
                     <td className={`${table.td} text-fg-subtle`}>{i.name}</td>
-                    <td className={`${table.td} text-right font-mono font-semibold`}>
+                    <td key={i.price} className={`${table.td} text-right font-mono font-semibold ${flashClass(moves[i.symbol])}`}>
                       {i.currency === "USD" ? "U$S " : "$"}
-                      {formatDecimal(i.price)}
+                      {formatDecimal(i.price * k)}
                     </td>
                     <td className={`${table.td} text-right font-mono`}>
                       <Change value={i.changePct} />
@@ -194,7 +201,10 @@ export function MarketsView() {
                       <span className="block text-[11px] text-fg-subtle">{i.name}</span>
                     </span>
                     <span className="text-right font-mono text-xs">
-                      <span className="block font-semibold">${formatDecimal(i.price)}</span>
+                      <span className="block font-semibold">
+                        {i.currency === "USD" ? "U$S " : "$"}
+                        {formatDecimal(i.price)}
+                      </span>
                       <Change value={i.changePct} />
                     </span>
                   </Link>
@@ -227,9 +237,14 @@ export function MarketsView() {
           <p className="text-xs text-fg-muted">
             Comprá AL30 en pesos y vendé AL30D en dólares en un solo paso. Brecha MEP/CCL hoy: <span className="font-mono text-positive">2,2%</span>.
           </p>
-          <div className="flex items-center gap-2 pt-2">
-            <StatusDot />
-            <span className="text-label text-fg-subtle">Disponible en horario de rueda</span>
+          <div className="flex items-center justify-between gap-2 pt-2">
+            <span className="flex items-center gap-2">
+              <StatusDot />
+              <span className="text-label text-fg-subtle">Disponible en horario de rueda</span>
+            </span>
+            <MoneyActionButton action="mep" size="sm" variant="buy">
+              Comprar MEP
+            </MoneyActionButton>
           </div>
         </Panel>
       </div>

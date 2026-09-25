@@ -1,16 +1,25 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useToast } from "@/components/ui/Toast";
+import { pushAudit, useAuditStore, useClientsStore } from "@/lib/store/hooks";
+import { staffUser } from "@/lib/mock-data";
+import { downloadFile, stamp, toCsv } from "@/lib/download";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { MsIcon } from "@/components/ui/MsIcon";
 import { Panel, table } from "@/components/ui/Page";
-import { auditLog, clients, docExpirations, plaAlerts, riskMatrix } from "@/lib/admin-data";
+import { docExpirations, plaAlerts, riskMatrix } from "@/lib/admin-data";
 import { formatDecimal } from "@/lib/format";
 
 type AlertState = "open" | "archived" | "ros" | "requested";
 
 export function ComplianceView() {
+  const router = useRouter();
+  const toast = useToast();
+  const [auditLog] = useAuditStore();
+  const [clients] = useClientsStore();
   const [states, setStates] = useState<Record<string, AlertState>>({});
   const [query, setQuery] = useState("");
   const [batchSent, setBatchSent] = useState(false);
@@ -20,18 +29,26 @@ export function ComplianceView() {
   const riskRows = clients.filter((c) => c.risk !== "Bajo");
 
   function act(id: string, action: string) {
-    const next: AlertState = action.startsWith("Archivar") ? "archived" : action.startsWith("Emitir") ? "ros" : "requested";
+    const alert = plaAlerts.find((a) => a.id === id)!;
+    if (action.startsWith("Ver legajo")) {
+      router.push(`/admin/usuarios?q=${encodeURIComponent(alert.subject)}`);
+      return;
+    }
+    const next: AlertState = action.startsWith("Archivar") || action.startsWith("Desbloquear") ? "archived" : action.startsWith("Emitir") ? "ros" : "requested";
     setStates((s) => ({ ...s, [id]: next }));
+    pushAudit({ who: staffUser.fullName, role: "Compliance", action, ref: alert.ref.split(" · ")[0], detail: `${alert.subject}: ${alert.level}` });
+    toast({
+      title: next === "ros" ? "ROS emitido a UIF" : next === "archived" ? "Alerta resuelta" : "Acción registrada",
+      text: `${alert.subject} · ${action}`,
+      tone: next === "ros" ? "negative" : "positive",
+    });
   }
 
   function downloadLog() {
-    const csv = ["timestamp,operador,rol,accion,referencia,detalle,hash", ...auditLog.map((l) => [l.ts, l.who, l.role, l.action, l.ref, `"${l.detail}"`, l.hash].join(","))].join("\n");
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "log-auditoria-nodo.csv";
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadFile(
+      `log-auditoria-nodo_${stamp()}.csv`,
+      toCsv(["timestamp", "operador", "rol", "accion", "referencia", "detalle", "hash"], auditLog.map((l) => [l.ts, l.who, l.role, l.action, l.ref, l.detail, l.hash])),
+    );
   }
 
   return (
@@ -70,7 +87,7 @@ export function ComplianceView() {
         </ul>
       </Panel>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
         <Panel title="Matriz de riesgo de comitentes" subtitle="Scoring UIF / KYC de la cartera total" className="min-w-0">
           <div className="flex h-3 overflow-hidden rounded-full" role="img" aria-label={`Riesgo bajo ${riskMatrix.bajo}%, medio ${riskMatrix.medio}%, alto ${riskMatrix.alto}%, inaceptable ${riskMatrix.inaceptable}%`}>
             <span className="bg-positive" style={{ width: `${riskMatrix.bajo}%` }} />
@@ -122,7 +139,11 @@ export function ComplianceView() {
             ))}
           </ul>
           <div className="flex flex-col gap-2 pt-3">
-            <Button variant="secondary" icon="forward_to_inbox" disabled={batchSent} onClick={() => setBatchSent(true)}>
+            <Button variant="secondary" icon="forward_to_inbox" disabled={batchSent} onClick={() => {
+                setBatchSent(true);
+                pushAudit({ who: staffUser.fullName, role: "Compliance", action: "Intimación automática", ref: "Batch", detail: `Intimación a ${docExpirations.length} comitentes con documentación por vencer.` });
+                toast({ title: "Intimación enviada", text: `${docExpirations.length} comitentes notificados.` });
+              }}>
               {batchSent ? "Intimación enviada" : "Ejecutar intimación automática (batch)"}
             </Button>
             {batchSent && <p role="status" className="text-xs text-positive">Se notificó a {docExpirations.length} comitentes (demo).</p>}
@@ -156,8 +177,8 @@ export function ComplianceView() {
               </tr>
             </thead>
             <tbody>
-              {logRows.map((l) => (
-                <tr key={l.hash} className={table.row}>
+              {logRows.map((l, i) => (
+                <tr key={`${l.hash}-${i}`} className={table.row}>
                   <td className={`${table.td} font-mono text-fg-subtle`}>{l.ts}</td>
                   <td className={table.td}>
                     <span className="block font-semibold">{l.who}</span>

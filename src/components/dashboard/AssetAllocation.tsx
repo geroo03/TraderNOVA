@@ -1,17 +1,18 @@
+"use client";
+
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Icon } from "@/components/ui/Icon";
+import { Donut } from "@/components/charts/Donut";
+import { usePortfolio } from "@/components/portfolio/usePortfolio";
 import { formatInteger } from "@/lib/format";
-import { allocation } from "@/lib/mock-data";
 
-// Colores en el mismo orden que los segmentos de donut-allocation.svg.
-// Nota: en el Figma la leyenda de "CEDEARs USA" usa #adc6ff pero su segmento es
-// #4d8eff; acá se alinea la leyenda con el gráfico.
-const SEGMENT_COLORS = ["bg-primary-strong", "bg-positive", "bg-primary", "bg-negative"] as const;
 const PCT_COLORS = ["text-primary", "text-positive", "text-primary", "text-negative"] as const;
 
+/** Distribución por clase de activo, calculada sobre la cartera en vivo. */
 export function AssetAllocation() {
-  const [largest] = [...allocation].sort((a, b) => b.pct - a.pct);
+  const { allocation } = usePortfolio();
+  const [largest] = [...allocation].sort((a, b) => b.amount - a.amount);
 
   return (
     <Card className="flex h-full flex-col gap-4 p-4">
@@ -23,20 +24,19 @@ export function AssetAllocation() {
         <Badge>Total 100%</Badge>
       </div>
 
-      <figure className="relative mx-auto size-48 py-3">
-        <Icon name="donut-allocation" width={192} height={192} className="absolute inset-0" />
-        <figcaption className="absolute inset-0 flex flex-col items-center justify-center">
+      <div className="mx-auto py-3">
+        <Donut label="Distribución de la cartera por clase de activo" slices={allocation.map((a) => ({ value: a.amount, color: a.color }))} size={192}>
           <span className="text-label uppercase text-fg-subtle">Activo mayor</span>
-          <span className="text-2xl font-bold tracking-[-0.36px]">{largest.pct}%</span>
-          <span className="text-label uppercase text-primary">CEDEARs</span>
-        </figcaption>
-      </figure>
+          <span className="text-2xl font-bold tracking-[-0.36px]">{largest?.pct ?? 0}%</span>
+          <span className="text-label uppercase text-primary">{largest?.label.split(" ")[0]}</span>
+        </Donut>
+      </div>
 
       <ul className="flex flex-col gap-1">
         {allocation.map((slice, i) => (
           <li key={slice.label} className="flex items-center justify-between rounded-lg bg-surface-high/60 p-1.5 text-xs">
             <span className="flex items-center gap-2">
-              <span aria-hidden className={`size-2.5 rounded-full ${SEGMENT_COLORS[i]}`} />
+              <span aria-hidden className="size-2.5 rounded-full" style={{ background: slice.color }} />
               {slice.label}
             </span>
             <span className="flex items-center gap-3 font-mono">

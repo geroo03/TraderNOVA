@@ -1,10 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useId, useState, type FormEvent } from "react";
 import { Icon } from "@/components/ui/Icon";
 
-type Step = "credentials" | "token";
+type Step = "credentials" | "token" | "recover";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const TOKEN_LENGTH = 6;
@@ -20,9 +21,11 @@ export function LoginForm() {
 
   return (
     <div className="flex w-full max-w-[448px] flex-col gap-4">
-      <StepSwitcher step={step} onChange={setStep} />
-      {step === "credentials" ? (
-        <CredentialsStep onSuccess={() => setStep("token")} />
+      {step !== "recover" && <StepSwitcher step={step} onChange={setStep} />}
+      {step === "recover" ? (
+        <RecoverStep onBack={() => setStep("credentials")} />
+      ) : step === "credentials" ? (
+        <CredentialsStep onSuccess={() => setStep("token")} onRecover={() => setStep("recover")} />
       ) : (
         <TokenStep onBack={() => setStep("credentials")} onSuccess={() => router.push("/dashboard")} />
       )}
@@ -62,12 +65,12 @@ function StepSwitcher({ step, onChange }: { step: Step; onChange: (s: Step) => v
   );
 }
 
-function CredentialsStep({ onSuccess }: { onSuccess: () => void }) {
+function CredentialsStep({ onSuccess, onRecover }: { onSuccess: () => void; onRecover: () => void }) {
   const emailId = useId();
   const passwordId = useId();
   const errorId = useId();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("inversor@nodo.com.ar");
+  const [password, setPassword] = useState("demo1234");
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -124,10 +127,10 @@ function CredentialsStep({ onSuccess }: { onSuccess: () => void }) {
             <label htmlFor={passwordId} className="text-label uppercase text-fg-muted">
               Contraseña de operaciones
             </label>
-            {/* TODO(auth): apuntar al flujo de recuperación cuando exista. */}
-            <a href="#" className="font-mono text-xs font-medium text-primary hover:underline">
+            {/* TODO(auth): el backend debe enviar el mail de recuperación. */}
+            <button type="button" onClick={onRecover} className="font-mono text-xs font-medium text-primary hover:underline">
               ¿Olvidaste tu contraseña?
-            </a>
+            </button>
           </div>
           <div className="relative">
             <Icon name="icon-lock" width={12} height={16} className="pointer-events-none absolute top-[11.75px] left-[15px]" />
@@ -185,10 +188,12 @@ function CredentialsStep({ onSuccess }: { onSuccess: () => void }) {
 
       <p className="pt-3 text-center text-xs text-fg-muted">
         ¿Todavía no tenés cuenta?{" "}
-        {/* TODO(onboarding): enlazar a la pantalla "Onboarding - Validación de DNI". */}
-        <a href="#" className="font-medium text-primary hover:underline">
+        <Link href="/onboarding" className="font-medium text-primary hover:underline">
           Abrí tu cuenta comitente en 5 min
-        </a>
+        </Link>
+      </p>
+      <p className="rounded-lg bg-primary/10 p-2 text-center text-[11px] text-primary">
+        Demo: las credenciales ya vienen cargadas y cualquier token de 6 dígitos es válido.
       </p>
     </form>
   );
@@ -197,6 +202,7 @@ function CredentialsStep({ onSuccess }: { onSuccess: () => void }) {
 function TokenStep({ onBack, onSuccess }: { onBack: () => void; onSuccess: () => void }) {
   const tokenId = useId();
   const [token, setToken] = useState("");
+  const [resent, setResent] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -247,8 +253,73 @@ function TokenStep({ onBack, onSuccess }: { onBack: () => void; onSuccess: () =>
         Verificar e ingresar
         <Icon name="icon-arrow-right" width={12} height={12} />
       </button>
+      <div className="flex items-center justify-between">
+        <button type="button" onClick={onBack} className="font-mono text-xs font-medium text-primary hover:underline">
+          ← Volver a credenciales
+        </button>
+        <button type="button" onClick={() => { setToken("482913"); setResent(true); }} className="font-mono text-xs font-medium text-fg-muted hover:text-fg">
+          {resent ? "Código enviado por SMS ✓" : "Enviarme el código por SMS"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function RecoverStep({ onBack }: { onBack: () => void }) {
+  const [email, setEmail] = useState("");
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!EMAIL_PATTERN.test(email.trim())) {
+      setError("Ingresá un correo electrónico válido.");
+      return;
+    }
+    setError(null);
+    // TODO(auth): pedir al backend el mail con el enlace de recuperación.
+    setSent(true);
+  }
+
+  return (
+    <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-4 pt-[7.5px]">
+      <header className="flex flex-col gap-1">
+        <p className="text-label uppercase tracking-[1px] text-primary">Recuperar acceso</p>
+        <h1 className="text-2xl font-semibold tracking-[-0.6px]">¿Olvidaste tu contraseña?</h1>
+        <p className="text-sm text-fg-muted">Te enviamos un enlace para crear una nueva. Vence en 30 minutos.</p>
+      </header>
+      {sent ? (
+        <p role="status" className="rounded-lg bg-positive/10 p-3 text-sm text-positive">
+          Listo: si {email} está registrado, vas a recibir el enlace en unos minutos. Revisá también la carpeta de spam.
+        </p>
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="recover-email" className="text-label uppercase text-fg-muted">
+            Correo electrónico
+          </label>
+          <input
+            id="recover-email"
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="inversor@nodo.com.ar"
+            className="w-full rounded-lg bg-surface-high px-3 py-2.5 font-mono text-sm text-fg placeholder:text-fg-subtle"
+          />
+          {error && (
+            <p role="alert" className="text-xs text-negative">
+              {error}
+            </p>
+          )}
+        </div>
+      )}
+      {!sent && (
+        <button type="submit" className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary-strong px-4 py-3 text-lg font-semibold text-on-primary shadow-lg transition-opacity hover:opacity-90">
+          Enviar enlace
+        </button>
+      )}
       <button type="button" onClick={onBack} className="font-mono text-xs font-medium text-primary hover:underline">
-        ← Volver a credenciales
+        ← Volver a iniciar sesión
       </button>
     </form>
   );

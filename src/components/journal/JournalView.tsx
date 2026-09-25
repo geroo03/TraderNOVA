@@ -8,6 +8,14 @@ import { MsIcon } from "@/components/ui/MsIcon";
 import { Panel, Stat } from "@/components/ui/Page";
 import { formatDecimal, formatInteger } from "@/lib/format";
 import { journalDays, MONTH, monthStats, type JournalDay } from "@/lib/journal";
+import { useLocalStore } from "@/lib/store/local-store";
+import { KEYS } from "@/lib/store/demo-data";
+import { useToast } from "@/components/ui/Toast";
+import { downloadFile, toCsv } from "@/lib/download";
+
+const SEED_NOTES: Record<number, string> = {
+  18: "Hoy respeté el plan a rajatabla. Esperé la confirmación de volumen en la primera media hora antes de entrar en GGAL.",
+};
 
 const WEEKDAYS = ["LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB", "DOM"];
 const signed = (v: number) => `${v >= 0 ? "+" : "-"}$${formatInteger(Math.abs(v))}`;
@@ -22,10 +30,15 @@ function dayClass(d: JournalDay | null, selected: boolean) {
 export function JournalView() {
   const stats = monthStats();
   const [selected, setSelected] = useState(18);
-  const [notes, setNotes] = useState<Record<number, string>>({
-    18: "Hoy respeté el plan a rajatabla. Esperé la confirmación de volumen en la primera media hora antes de entrar en GGAL.",
-  });
+  const toast = useToast();
+  const [notes, setNotes] = useLocalStore<Record<number, string>>(KEYS.journalNotes, SEED_NOTES);
+  const [draft, setDraft] = useState<Record<number, string>>({});
   const [saved, setSaved] = useState(false);
+
+  function exportMonth() {
+    const rows = journalDays.flatMap((d) => (d ? d.trades.map((t) => [`${d.day}/02/2025`, t.symbol, t.direction, t.setup, t.entry, t.exit, t.pnl, notes[d.day] ?? ""]) : []));
+    downloadFile("diario-trading-feb-2025.csv", toCsv(["fecha", "especie", "direccion", "setup", "entrada", "salida", "pnl", "nota"], rows));
+  }
   const day = journalDays[selected - 1];
   const leading = Array.from({ length: MONTH.firstWeekday });
   const cells = [...leading.map(() => undefined), ...journalDays.map((d, i) => ({ d, n: i + 1 }))];
@@ -42,12 +55,15 @@ export function JournalView() {
         <Stat label="Profit factor" value={formatDecimal(stats.profitFactor)} hint={`Vol. operado $${formatDecimal(stats.volumeM)}M ARS`} />
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
         <Panel
           title={MONTH.label}
           subtitle="Tocá una rueda para ver el detalle"
           actions={
-            <span className="flex gap-3 text-[11px] text-fg-subtle">
+            <span className="flex flex-wrap items-center gap-3 text-[11px] text-fg-subtle">
+              <Button size="sm" variant="secondary" icon="download" onClick={exportMonth}>
+                Exportar mes
+              </Button>
               <span className="flex items-center gap-1"><span className="size-2 rounded-sm bg-positive" /> Rueda verde</span>
               <span className="flex items-center gap-1"><span className="size-2 rounded-sm bg-alert" /> Rueda roja</span>
               <span className="flex items-center gap-1"><span className="size-2 rounded-sm bg-surface-higher" /> Sin operatoria</span>
@@ -154,9 +170,9 @@ export function JournalView() {
               <textarea
                 id="journal-note"
                 rows={4}
-                value={notes[day.day] ?? ""}
+                value={draft[day.day] ?? notes[day.day] ?? ""}
                 onChange={(e) => {
-                  setNotes((n) => ({ ...n, [day.day]: e.target.value }));
+                  setDraft((n) => ({ ...n, [day.day]: e.target.value }));
                   setSaved(false);
                 }}
                 placeholder="¿Qué salió bien? ¿Qué cambiarías?"
@@ -168,10 +184,25 @@ export function JournalView() {
                 ))}
               </div>
               <div className="flex items-center gap-2">
-                <Button size="sm" icon="save" onClick={() => setSaved(true)}>
+                <Button
+                  size="sm"
+                  icon="save"
+                  disabled={draft[day.day] === undefined}
+                  onClick={() => {
+                    setNotes((n) => ({ ...n, [day.day]: draft[day.day] ?? n[day.day] ?? "" }));
+                    setDraft((d) => {
+                      const next = { ...d };
+                      delete next[day.day];
+                      return next;
+                    });
+                    setSaved(true);
+                    toast({ title: "Bitácora guardada", text: `${day.day} de febrero` });
+                  }}
+                >
                   Guardar bitácora
                 </Button>
-                {saved && <span role="status" className="text-xs text-positive">Guardado en esta sesión</span>}
+                {saved && <span role="status" className="text-xs text-positive">Guardado en este navegador</span>}
+                {draft[day.day] !== undefined && <span className="text-xs text-fg-subtle">Cambios sin guardar</span>}
               </div>
             </div>
           </Card>

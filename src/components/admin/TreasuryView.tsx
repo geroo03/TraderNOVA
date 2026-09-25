@@ -8,6 +8,13 @@ import { MsIcon } from "@/components/ui/MsIcon";
 import { Panel, table } from "@/components/ui/Page";
 import { Tabs } from "@/components/ui/Tabs";
 import { treasuryLog, treasuryQueue, type TreasuryItem } from "@/lib/admin-data";
+import { useToast } from "@/components/ui/Toast";
+import { useLocalStore } from "@/lib/store/local-store";
+import { KEYS } from "@/lib/store/demo-data";
+import { pushAudit } from "@/lib/store/hooks";
+
+type LogRow = (typeof treasuryLog)[number];
+const SEED = { queue: treasuryQueue, log: treasuryLog as LogRow[] };
 import { formatDecimal } from "@/lib/format";
 
 type Filter = "all" | "withdrawals" | "observed" | "vip";
@@ -15,8 +22,10 @@ type Filter = "all" | "withdrawals" | "observed" | "vip";
 const money = (t: TreasuryItem) => `${t.currency === "USD" ? "U$S " : "$"}${formatDecimal(t.amount)}`;
 
 export function TreasuryView() {
-  const [queue, setQueue] = useState(treasuryQueue);
-  const [log, setLog] = useState(treasuryLog);
+  const toast = useToast();
+  const [state, setState] = useLocalStore(KEYS.treasury, SEED);
+  const { queue, log } = state;
+  const [batching, setBatching] = useState(false);
   const [filter, setFilter] = useState<Filter>("all");
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [inspectId, setInspectId] = useState<string | undefined>(treasuryQueue[0]?.id);
@@ -27,20 +36,29 @@ export function TreasuryView() {
   const inspected = queue.find((t) => t.id === inspectId);
 
   function resolve(ids: string[], approved: boolean) {
+    resolveWith(ids, approved, "Martín Benítez");
+  }
+
+  function resolveWith(ids: string[], approved: boolean, operator: string) {
     const now = new Date().toLocaleTimeString("es-AR", { hour12: false });
     const items = queue.filter((t) => ids.includes(t.id));
-    setLog((prev) => [
-      ...items.map((t) => ({
-        time: now,
-        operator: "Martín Benítez",
-        op: `${t.kind === "RETIRO" ? "Retiro" : "Depósito"} ${approved ? "aprobado" : "rechazado"} · ${t.client}`,
-        amount: `${t.kind === "RETIRO" ? "-" : "+"}${money(t)}`,
-        ref: t.id,
-        status: approved ? "Transferido" : "Rechazado",
-      })),
-      ...prev,
-    ]);
-    setQueue((prev) => prev.filter((t) => !ids.includes(t.id)));
+    setState((prev) => ({
+      queue: prev.queue.filter((t) => !ids.includes(t.id)),
+      log: [
+        ...items.map((t) => ({
+          time: now,
+          operator,
+          op: `${t.kind === "RETIRO" ? "Retiro" : "Depósito"} ${approved ? "aprobado" : "rechazado"} · ${t.client}`,
+          amount: `${t.kind === "RETIRO" ? "-" : "+"}${money(t)}`,
+          ref: t.id,
+          status: approved ? "Transferido" : "Rechazado",
+        })),
+        ...prev.log,
+      ],
+    }));
+    for (const t of items)
+      pushAudit({ who: operator, role: "Tesorería", action: `${t.kind === "RETIRO" ? "Retiro" : "Depósito"} ${approved ? "aprobado" : "rechazado"}`, ref: t.id, detail: `${t.client} · ${money(t)}` });
+    toast({ title: `${items.length} movimiento(s) ${approved ? "aprobado(s)" : "rechazado(s)"}`, text: items.map((t) => t.id).join(", "), tone: approved ? "positive" : "neutral" });
     setChecked(new Set());
     setInspectId((cur) => (cur && ids.includes(cur) ? queue.find((t) => !ids.includes(t.id))?.id : cur));
   }
@@ -64,15 +82,35 @@ export function TreasuryView() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
         <Panel
           title="Cola de aprobación"
           subtitle="Retiros y depósitos que requieren intervención manual"
           className="min-w-0"
           actions={
-            <Button size="sm" variant="buy" icon="done_all" disabled={approvable.length === 0} onClick={() => resolve(approvable, true)}>
-              Aprobar seleccionados ({approvable.length})
-            </Button>
+            <>
+              <Button
+                size="sm"
+                variant="secondary"
+                icon="sync"
+                disabled={batching}
+                onClick={() => {
+                  // La conciliación automática solo libera lo que pasa todos los controles (CUIT espejo y sin observaciones).
+                  const ok = queue.filter((t) => t.cuitMatch && !t.observed).map((t) => t.id);
+                  setBatching(true);
+                  setTimeout(() => {
+                    setBatching(false);
+                    if (ok.length) resolveWith(ok, true, "Bot STP COELSA");
+                    else toast({ title: "Conciliación sin pendientes", text: "Lo que queda en cola requiere revisión manual.", tone: "neutral" });
+                  }, 1_200);
+                }}
+              >
+                {batching ? "Conciliando…" : "Conciliación automática (batch)"}
+              </Button>
+              <Button size="sm" variant="buy" icon="done_all" disabled={approvable.length === 0} onClick={() => resolve(approvable, true)}>
+                Aprobar seleccionados ({approvable.length})
+              </Button>
+            </>
           }
         >
           <div className="flex flex-col gap-3">
@@ -184,7 +222,17 @@ export function TreasuryView() {
               Confirmar y firmar token bancario
             </Button>
             <div className="grid grid-cols-2 gap-2">
-              <Button variant="secondary" size="sm" icon="receipt_long">Pedir comprobante</Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                icon="receipt_long"
+                onClick={() => {
+                  pushAudit({ who: "Martín Benítez", role: "Tesorería", action: "Pedido de comprobante", ref: inspected.id, detail: `Se solicitó comprobante de origen a ${inspected.client}.` });
+                  toast({ title: "Comprobante solicitado", text: `Se notificó a ${inspected.client} por mail y en la app.`, tone: "primary" });
+                }}
+              >
+                Pedir comprobante
+              </Button>
               <Button variant="danger" size="sm" icon="block" onClick={() => resolve([inspected.id], false)}>
                 Rechazar
               </Button>

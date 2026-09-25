@@ -173,3 +173,88 @@ export const auditLog = [
   { ts: "14:55:31", who: "Sistema PLA", role: "Motor de reglas", action: "Alerta de fraccionamiento", ref: "Cta. #78210", detail: "Regla R-07: 7 depósitos < umbral en 48 hs.", hash: "0xa771…03bc" },
   { ts: "14:20:05", who: "Martín Benítez", role: "Compliance", action: "Notificación de vencimiento", ref: "Batch #22", detail: "Intimación automática a 14 comitentes con documentación vencida.", hash: "0x93d0…e4f2" },
 ];
+
+export type AdminOrderStatus = "working" | "partial" | "executed" | "cancelled" | "rejected";
+
+export interface AdminOrder {
+  id: string;
+  time: string;
+  client: string;
+  account: string;
+  channel: "Web" | "App" | "API" | "Mesa";
+  symbol: string;
+  side: "buy" | "sell";
+  type: string;
+  quantity: number;
+  filled: number;
+  price: number;
+  currency: "ARS" | "USD";
+  status: AdminOrderStatus;
+  reason?: string;
+}
+
+/** Órdenes de otros comitentes (las del inversor de la demo se suman en vivo desde su cuenta). */
+export const deskOrders: AdminOrder[] = [
+  { id: "NYM-92977", time: "15:43:12", client: "Lucía Morales", account: "46512-3", channel: "App", symbol: "GGAL", side: "buy", type: "Límite", quantity: 1_250, filled: 1_250, price: 4_890, currency: "ARS", status: "executed" },
+  { id: "NYM-92975", time: "15:41:40", client: "Inversiones del Plata S.A.", account: "87811-0", channel: "API", symbol: "AL30D", side: "sell", type: "Stop Límite", quantity: 25_000, filled: 0, price: 57.9, currency: "USD", status: "rejected", reason: "Margen insuficiente" },
+  { id: "NYM-92971", time: "15:39:02", client: "Esteban Quiroga", account: "65102-7", channel: "Web", symbol: "YPFD", side: "buy", type: "Límite", quantity: 400, filled: 150, price: 28_300, currency: "ARS", status: "partial" },
+  { id: "NYM-92966", time: "15:35:47", client: "Camila Ferreyra", account: "77214-0", channel: "App", symbol: "MELI", side: "buy", type: "Mercado", quantity: 12, filled: 12, price: 26_710, currency: "ARS", status: "executed" },
+  { id: "NYM-92960", time: "15:30:15", client: "Agropecuaria El Ombú", account: "55410-2", channel: "Mesa", symbol: "GD30D", side: "buy", type: "Límite", quantity: 50_000, filled: 0, price: 59.8, currency: "USD", status: "working" },
+  { id: "NYM-92955", time: "15:22:09", client: "Mariano Bustos", account: "84921-9", channel: "Web", symbol: "NVDA", side: "buy", type: "Límite", quantity: 300, filled: 0, price: 18_100, currency: "ARS", status: "rejected", reason: "Cuenta con KYC pendiente" },
+  { id: "NYM-92948", time: "15:10:33", client: "Tecnitur SRL", account: "31204-8", channel: "API", symbol: "PAMP", side: "sell", type: "Límite", quantity: 2_000, filled: 0, price: 2_980, currency: "ARS", status: "working" },
+  { id: "NYM-92941", time: "14:58:50", client: "Gonzalo Varela", account: "91038-4", channel: "Web", symbol: "AAPL", side: "buy", type: "Límite", quantity: 100, filled: 0, price: 18_900, currency: "ARS", status: "rejected", reason: "Límite de exposición PEP" },
+  { id: "NYM-92933", time: "14:41:18", client: "Lucía Morales", account: "46512-3", channel: "App", symbol: "BMA", side: "sell", type: "Límite", quantity: 500, filled: 500, price: 7_180, currency: "ARS", status: "executed" },
+  { id: "NYM-92920", time: "14:20:05", client: "Esteban Quiroga", account: "65102-7", channel: "Mesa", symbol: "TXAR", side: "sell", type: "Límite", quantity: 3_000, filled: 0, price: 1_150, currency: "ARS", status: "cancelled" },
+  { id: "NYM-92914", time: "14:02:44", client: "Inversiones del Plata S.A.", account: "87811-0", channel: "API", symbol: "GGAL", side: "sell", type: "Límite", quantity: 8_000, filled: 0, price: 5_200, currency: "ARS", status: "rejected", reason: "Fuera de banda de precios" },
+  { id: "NYM-92902", time: "13:47:21", client: "Camila Ferreyra", account: "77214-0", channel: "App", symbol: "KO", side: "buy", type: "Límite", quantity: 40, filled: 0, price: 14_050, currency: "ARS", status: "rejected", reason: "Saldo insuficiente" },
+];
+
+export interface RiskLimit {
+  clientId: string;
+  /** Límite de exposición en rueda (ARS). */
+  exposureLimit: number;
+  /** Uso actual del límite (ARS). */
+  used: number;
+  /** Aforo de garantía en cauciones tomadoras (%). */
+  collateral: number;
+  leverage: boolean;
+}
+
+export const riskLimits: RiskLimit[] = [
+  { clientId: "c1", exposureLimit: 2_500_000, used: 1_980_000, collateral: 100, leverage: false },
+  { clientId: "c2", exposureLimit: 15_000_000, used: 6_200_000, collateral: 92, leverage: true },
+  { clientId: "c3", exposureLimit: 120_000_000, used: 98_400_000, collateral: 74, leverage: true },
+  { clientId: "c4", exposureLimit: 0, used: 0, collateral: 100, leverage: false },
+  { clientId: "c5", exposureLimit: 10_000_000, used: 9_100_000, collateral: 81, leverage: false },
+  { clientId: "c6", exposureLimit: 5_000_000, used: 1_200_000, collateral: 100, leverage: false },
+  { clientId: "c7", exposureLimit: 60_000_000, used: 47_300_000, collateral: 77, leverage: true },
+];
+
+export const staffRoles = ["Administrador", "Compliance", "Tesorería", "Mesa de operaciones", "Soporte"] as const;
+export const permissions = [
+  "Aprobar KYC",
+  "Bloquear comitentes",
+  "Aprobar retiros",
+  "Cancelar órdenes de clientes",
+  "Modificar límites de riesgo",
+  "Emitir ROS a UIF",
+  "Responder tickets",
+  "Exportar reportes regulatorios",
+] as const;
+
+/** Matriz inicial rol × permiso. */
+export const roleMatrix: Record<string, string[]> = {
+  Administrador: [...permissions],
+  Compliance: ["Aprobar KYC", "Bloquear comitentes", "Emitir ROS a UIF", "Exportar reportes regulatorios", "Modificar límites de riesgo"],
+  Tesorería: ["Aprobar retiros", "Exportar reportes regulatorios"],
+  "Mesa de operaciones": ["Cancelar órdenes de clientes", "Modificar límites de riesgo"],
+  Soporte: ["Responder tickets"],
+};
+
+export const staffMembers = [
+  { name: "Martín Benítez", role: "Compliance", email: "mbenitez@nodo.com.ar", lastSeen: "Ahora" },
+  { name: "Laura Vega", role: "Tesorería", email: "lvega@nodo.com.ar", lastSeen: "Hace 12 min" },
+  { name: "Diego Paz", role: "Mesa de operaciones", email: "dpaz@nodo.com.ar", lastSeen: "Hace 3 min" },
+  { name: "Sofía Ríos", role: "Soporte", email: "srios@nodo.com.ar", lastSeen: "Hace 1 h" },
+  { name: "Ana Torres", role: "Administrador", email: "atorres@nodo.com.ar", lastSeen: "Ayer" },
+];

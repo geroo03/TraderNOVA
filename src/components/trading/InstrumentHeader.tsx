@@ -1,8 +1,11 @@
+"use client";
+
 import { Badge, StatusDot } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { formatDecimal, formatPercent } from "@/lib/format";
 import type { Instrument } from "@/lib/market-data";
 import type { ReactNode } from "react";
+import { flashClass, useMarket } from "@/components/market/MarketProvider";
 
 function money(i: Instrument, v: number) {
   return `${i.currency === "USD" ? "U$S " : "$"}${formatDecimal(v)}`;
@@ -20,6 +23,7 @@ export function InstrumentHeader({ instrument, actions }: { instrument: Instrume
     ["Volumen", `$${formatDecimal(i.volumeM)}M`],
   ];
   const up = i.changePct >= 0;
+  const { moves } = useMarket();
 
   return (
     <Card className="flex flex-wrap items-center justify-between gap-4 p-4">
@@ -36,7 +40,7 @@ export function InstrumentHeader({ instrument, actions }: { instrument: Instrume
           {i.ratio && <Badge>{i.ratio}</Badge>}
         </div>
         <p className="text-label flex items-center gap-1 uppercase text-fg-subtle">
-          <StatusDot /> Mercado abierto · Cierre 17:00 hs (ART)
+          <StatusDot /> Mercado abierto · Cierre 17:00 hs (ART) · Prev. ${formatDecimal(prev)}
         </p>
         <dl className="flex flex-wrap gap-x-5 gap-y-1">
           {stats.map(([k, v]) => (
@@ -48,7 +52,9 @@ export function InstrumentHeader({ instrument, actions }: { instrument: Instrume
         </dl>
       </div>
       <div className="flex flex-col items-end gap-2">
-        <p className="font-mono text-3xl font-bold tracking-[-1px]">{money(i, i.price)}</p>
+        <p key={i.price} className={`rounded px-1 font-mono text-3xl font-bold tracking-[-1px] ${flashClass(moves[i.symbol])}`}>
+          {money(i, i.price)}
+        </p>
         <p className={`font-mono text-sm font-semibold ${up ? "text-positive" : "text-negative"}`}>
           {formatPercent(i.changePct)} ({up ? "+" : "-"}
           {money(i, Math.abs(i.price - prev))})

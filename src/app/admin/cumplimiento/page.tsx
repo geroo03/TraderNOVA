@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { ComplianceView } from "@/components/admin/ComplianceView";
 import { Badge, StatusDot } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
+import { ExportButton, RosReportButton } from "@/components/admin/AdminActions";
 import { PageHeader, Stat } from "@/components/ui/Page";
 
 export const metadata: Metadata = { title: "Cumplimiento CNV/UIF" };
@@ -20,8 +20,8 @@ export default function CumplimientoPage() {
         description="Monitoreo transaccional automatizado, perfilamiento de riesgo por cliente, cumplimiento normativo y registro inmutable según Res. CNV y UIF."
         actions={
           <>
-            <Button variant="secondary" icon="download">Exportar régimen CNV</Button>
-            <Button variant="sell" icon="report">Generar reporte ROS / UIF</Button>
+            <ExportButton kind="cnv-regimen" label="Exportar régimen CNV" variant="secondary" />
+            <RosReportButton />
           </>
         }
       />

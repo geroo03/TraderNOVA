@@ -1,5 +1,6 @@
 import { Badge, StatusDot } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
+import { ExportButton } from "./AdminActions";
+import { NewClientButton } from "./NewClientButton";
 import { PageHeader, Stat } from "@/components/ui/Page";
 
 export function ClientsHeader({ title }: { title: string }) {
@@ -11,8 +12,8 @@ export function ClientsHeader({ title }: { title: string }) {
         description="Auditoría de legajos KYC, verificación de identidad Renaper, scoring de riesgo y estados operativos de cuentas comitentes BYMA/MAE."
         actions={
           <>
-            <Button variant="secondary" icon="download">Exportar padrón CNV (CSV)</Button>
-            <Button icon="person_add">Alta manual de comitente</Button>
+            <ExportButton kind="padron" label="Exportar padrón CNV (CSV)" variant="secondary" />
+            <NewClientButton />
           </>
         }
       />

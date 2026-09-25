@@ -2,36 +2,54 @@
 
 import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/Button";
+import { useToast } from "@/components/ui/Toast";
+import { useTrading } from "@/components/trading/TradingProvider";
 import { formatDecimal } from "@/lib/format";
-import { linkedAccounts } from "@/lib/accounts";
+import { useLinkedAccountsStore } from "@/lib/store/hooks";
 
 const QUICK = [100_000, 500_000, 1_000_000, 5_000_000];
 const inputCls = "w-full rounded-lg bg-surface-high px-3 py-2 text-sm text-fg outline-none focus-visible:ring-2 focus-visible:ring-primary";
+/** Tiempo de acreditación simulado (el "Fondeo Flash" promete 42 s; la demo lo acorta). */
+const SETTLE_MS = 8_000;
 
-/** Aviso de transferencia enviada (demo: valida y confirma en pantalla). */
-export function FundingNotice() {
+/** Aviso de transferencia enviada: registra un depósito "En proceso" que se acredita a los segundos. */
+export function FundingNotice({ onDone }: { onDone?: () => void }) {
+  const toast = useToast();
+  const { addMovement } = useTrading();
+  const [accounts] = useLinkedAccountsStore();
+  const ars = accounts.filter((a) => a.currency === "ARS");
   const [amount, setAmount] = useState(500_000);
-  const [account, setAccount] = useState(linkedAccounts[0].id);
+  const [account, setAccount] = useState(ars[0]?.id ?? "");
   const [reference, setReference] = useState("");
   const [notify, setNotify] = useState(true);
-  const [sent, setSent] = useState(false);
-  const invalid = !(amount > 0);
+  const [sent, setSent] = useState<string | null>(null);
+  const invalid = !(amount > 0) || !account;
 
   function submit(e: FormEvent) {
     e.preventDefault();
     if (invalid) return;
-    setSent(true);
+    const acc = accounts.find((a) => a.id === account);
+    addMovement({
+      kind: "deposit",
+      title: "Depósito bancario inmediato",
+      counterparty: `${acc?.bank} · ${acc?.type} ***${acc?.last4}${reference ? ` · Comp. ${reference}` : ""}`,
+      amount,
+      currency: "ARS",
+      status: "En proceso",
+    }, SETTLE_MS);
+    toast({ title: "Aviso registrado", text: `Conciliando $${formatDecimal(amount)} desde ${acc?.bank}. Se acredita en unos segundos.`, tone: "primary" });
+    setSent(acc?.bank ?? "");
+    onDone?.();
   }
 
-  if (sent) {
-    const acc = linkedAccounts.find((a) => a.id === account);
+  if (sent !== null) {
     return (
       <div role="status" className="flex flex-col gap-2 rounded-lg bg-positive/10 p-4 text-sm">
         <p className="font-semibold text-positive">Aviso registrado</p>
         <p className="text-fg-muted">
-          Vamos a conciliar ${formatDecimal(amount)} desde {acc?.bank}. {notify ? "Te avisamos por WhatsApp y correo cuando se acredite." : ""}
+          Vamos a conciliar ${formatDecimal(amount)} desde {sent}. {notify ? "Te avisamos por WhatsApp y correo cuando se acredite." : ""} Seguí el estado en el historial de movimientos.
         </p>
-        <Button variant="secondary" size="sm" className="self-start" onClick={() => setSent(false)}>
+        <Button variant="secondary" size="sm" className="self-start" onClick={() => setSent(null)}>
           Cargar otro aviso
         </Button>
       </div>
@@ -55,7 +73,7 @@ export function FundingNotice() {
         <label className="flex flex-col gap-1">
           <span className="text-label uppercase text-fg-subtle">Cuenta de origen</span>
           <select value={account} onChange={(e) => setAccount(e.target.value)} className={inputCls}>
-            {linkedAccounts.map((a) => (
+            {ars.map((a) => (
               <option key={a.id} value={a.id}>
                 {a.bank} · {a.type} ***{a.last4}
               </option>

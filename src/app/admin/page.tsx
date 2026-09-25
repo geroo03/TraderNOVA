@@ -4,7 +4,7 @@ import { BarChart } from "@/components/charts/BarChart";
 import { LineChart } from "@/components/charts/LineChart";
 import { DeskActivity } from "@/components/admin/DeskActivity";
 import { Badge, StatusDot, type Tone } from "@/components/ui/Badge";
-import { Button, ButtonLink } from "@/components/ui/Button";
+import { RefreshDmaButton, ExportButton } from "@/components/admin/AdminActions";
 import { MsIcon } from "@/components/ui/MsIcon";
 import { PageHeader, Panel, Stat } from "@/components/ui/Page";
 import { formatDecimal, formatInteger } from "@/lib/format";
@@ -29,8 +29,8 @@ export default function AdminDashboardPage() {
         description="Monitoreo en tiempo real de comitentes, órdenes DMA BYMA, flujos de tesorería y alertas regulatorias CNV/UIF."
         actions={
           <>
-            <Button variant="secondary" icon="refresh">Refrescar DMA</Button>
-            <ButtonLink href="/admin/cumplimiento" icon="download">Exportar reporte CNV</ButtonLink>
+            <RefreshDmaButton />
+            <ExportButton kind="cnv-daily" label="Exportar reporte CNV" />
           </>
         }
       />
@@ -88,7 +88,7 @@ export default function AdminDashboardPage() {
         </Panel>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
         <Panel title={<><MsIcon name="notifications_active" size={18} className="text-negative" /> Supervisión operativa & alertas</>} actions={<Badge tone="negative">{opsAlerts.filter((a) => a.severity !== "info").length} pendientes</Badge>}>
           <ul className="flex flex-col gap-2">
             {opsAlerts.map((a) => (

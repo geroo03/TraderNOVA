@@ -1,30 +1,41 @@
+"use client";
+
 import Link from "next/link";
 import { Badge, StatusDot, type Tone } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { Icon } from "@/components/ui/Icon";
 import { formatDecimal, formatInteger } from "@/lib/format";
-import { recentOrders, currentUser } from "@/lib/mock-data";
-import { estimatedAmount } from "@/lib/orders";
-import type { Currency, OrderStatus } from "@/lib/types";
+import { currentUser } from "@/lib/mock-data";
+import { orderValue } from "@/lib/orders";
+import { findInstrument } from "@/lib/market-data";
+import type { Currency } from "@/lib/types";
+import { useTrading } from "@/components/trading/TradingProvider";
+import type { LiveOrder } from "@/lib/trading";
 
 function money(value: number, currency: Currency): string {
   return `${currency === "USD" ? "U$S " : "$"}${formatDecimal(value)}`;
 }
 
-function statusView(status: OrderStatus): { label: string; tone: Tone } {
-  switch (status.kind) {
+function statusView(o: LiveOrder): { label: string; tone: Tone } {
+  switch (o.status) {
     case "executed":
       return { label: "Ejecutada", tone: "positive" };
     case "partial":
-      return { label: `Parcial ${status.filledPct}%`, tone: "primary" };
+      return { label: `Parcial ${Math.round((o.filled / o.quantity) * 100)}%`, tone: "primary" };
     case "working":
       return { label: "En Rueda", tone: "neutral" };
+    case "cancelled":
+      return { label: "Cancelada", tone: "negative" };
   }
 }
+
+const KIND = { "Panel Líder": "Acción", CEDEAR: "CEDEAR", Bono: "Bono USD" } as const;
 
 const TH = "text-label px-3 py-2.5 uppercase text-fg-subtle whitespace-nowrap";
 
 export function RecentOrders() {
+  const { orders } = useTrading();
+  const recent = orders.slice(0, 5);
   return (
     <Card className="flex flex-col gap-3 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -55,25 +66,28 @@ export function RecentOrders() {
             </tr>
           </thead>
           <tbody>
-            {recentOrders.map((order, i) => {
-              const status = statusView(order.status);
+            {recent.map((order, i) => {
+              const status = statusView(order);
+              const kind = KIND[findInstrument(order.symbol)?.board ?? "Panel Líder"];
               return (
                 <tr key={order.id} className={i % 2 === 1 ? "bg-surface-high/20" : undefined}>
                   <td className="px-3 py-2.5">
                     <span className="flex items-center gap-2">
                       <span className="font-mono text-sm font-semibold">{order.symbol}</span>
-                      <Badge className="text-fg-subtle">{order.instrument}</Badge>
+                      <Badge className="text-fg-subtle">{kind}</Badge>
                     </span>
                   </td>
                   <td className="px-3 py-2.5">
                     <span className="flex items-center gap-1.5">
-                      <Badge tone={order.side === "COMPRA" ? "positive" : "negative"}>{order.side}</Badge>
-                      <span className="text-xs text-fg-subtle">{order.orderType}</span>
+                      <Badge tone={order.side === "buy" ? "positive" : "negative"}>{order.side === "buy" ? "COMPRA" : "VENTA"}</Badge>
+                      <span className="text-xs text-fg-subtle">
+                        {order.type} · {order.term}
+                      </span>
                     </span>
                   </td>
                   <td className="px-3 py-2.5 text-right font-mono text-xs font-medium">{formatInteger(order.quantity)}</td>
-                  <td className="px-3 py-2.5 text-right font-mono text-xs font-medium">{money(order.limitPrice, order.currency)}</td>
-                  <td className="px-3 py-2.5 text-right font-mono text-xs font-semibold">{money(estimatedAmount(order), order.currency)}</td>
+                  <td className="px-3 py-2.5 text-right font-mono text-xs font-medium">{money(order.price, order.currency)}</td>
+                  <td className="px-3 py-2.5 text-right font-mono text-xs font-semibold">{money(orderValue(order.symbol, order.quantity, order.price, order.side).gross, order.currency)}</td>
                   <td className="px-3 py-2.5 text-center font-mono text-xs text-fg-subtle">{order.time}</td>
                   <td className="px-3 py-2 text-center">
                     <Badge tone={status.tone} pill className={`px-2 ${status.tone === "neutral" ? "bg-surface-highest" : ""}`}>
@@ -84,6 +98,13 @@ export function RecentOrders() {
                 </tr>
               );
             })}
+            {recent.length === 0 && (
+              <tr>
+                <td colSpan={7} className="p-6 text-center text-xs text-fg-subtle">
+                  Sin órdenes todavía. <Link href="/operar" className="text-primary hover:underline">Hacé tu primera operación</Link>.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { TreasuryView } from "@/components/admin/TreasuryView";
 import { Badge, StatusDot } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
+import { ExportButton } from "@/components/admin/AdminActions";
 import { PageHeader, Stat } from "@/components/ui/Page";
 
 export const metadata: Metadata = { title: "Tesorería & Fondos" };
@@ -20,8 +20,7 @@ export default function TesoreriaPage() {
         description="Supervisión de acreditaciones COELSA en tiempo real, validación de CUIT espejo (CNV/UIF), control de saldos para egresos T+0 y balance de custodia en Caja de Valores S.A."
         actions={
           <>
-            <Button variant="secondary" icon="sync">Conciliación automática (batch)</Button>
-            <Button icon="download">Exportar BCRA / CNV</Button>
+            <ExportButton kind="bcra" label="Exportar BCRA / CNV" />
           </>
         }
       />

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { JournalView } from "@/components/journal/JournalView";
+import { FiscalReportButton } from "@/components/journal/FiscalReport";
 import { Badge, StatusDot } from "@/components/ui/Badge";
 import { ButtonLink } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/Page";
@@ -19,9 +20,12 @@ export default function InformesPage() {
         title="Diario de Trading"
         description="Registro diario de operaciones, P&L por rueda y bitácora asistida por Nova AI."
         actions={
-          <ButtonLink href="/ordenes" variant="secondary" icon="sync">
-            Ver órdenes sincronizadas
-          </ButtonLink>
+          <>
+            <FiscalReportButton />
+            <ButtonLink href="/ordenes" variant="secondary" icon="sync">
+              Ver órdenes sincronizadas
+            </ButtonLink>
+          </>
         }
       />
       <JournalView />

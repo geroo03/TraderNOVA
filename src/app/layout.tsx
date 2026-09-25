@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
+import { Providers } from "@/components/Providers";
+import { themeScript } from "@/components/layout/ThemeSync";
 
 // Fuentes auto-alojadas (variables, subset latin, licencia OFL) para no depender
 // de Google Fonts en build: así compila también en redes restringidas.
@@ -24,7 +26,7 @@ const siteUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: { template: "%s · Nodo Trading", default: "Nodo Trading" },
+  title: "Nodo Trading",
   description: "Terminal de inversores BYMA y CEDEARs.",
   openGraph: {
     title: "Nodo Trading",
@@ -37,8 +39,14 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="es-AR" className={`${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}>
-      <body className="min-h-full">{children}</body>
+    // suppressHydrationWarning: el script de tema agrega data-theme antes de hidratar.
+    <html lang="es-AR" data-theme="dark" suppressHydrationWarning className={`${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
+      <body className="min-h-full">
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

@@ -1,3 +1,5 @@
+import type { Movement } from "./trading";
+
 export interface LinkedAccount {
   id: string;
   bank: string;
@@ -23,19 +25,7 @@ export const depositDetails = {
   cuit: "30-71638541-9",
 } as const;
 
-export type MovementKind = "deposit" | "withdrawal" | "mep" | "income";
-
-export interface Movement {
-  id: string;
-  date: string;
-  kind: MovementKind;
-  title: string;
-  reference: string;
-  counterparty: string;
-  amount: number;
-  currency: "ARS" | "USD";
-  status: "Acreditado" | "Liquidado T+1" | "En proceso";
-}
+export type { Movement, MovementKind } from "./trading";
 
 export const movements: Movement[] = [
   { id: "m1", date: "Hoy, 14:20 hs", kind: "deposit", title: "Depósito bancario inmediato", reference: "ID: MOV-849201", counterparty: "Banco Galicia - CA · Titular: Facundo Rossi", amount: 500_000, currency: "ARS", status: "Acreditado" },

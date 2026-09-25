@@ -11,7 +11,10 @@ import { Panel, Stat, table } from "@/components/ui/Page";
 import { Tabs } from "@/components/ui/Tabs";
 import { Change } from "@/components/ui/Amount";
 import { formatDecimal, formatPercent } from "@/lib/format";
-import { instruments, intradaySeries, marketIndices, type Board, type Instrument } from "@/lib/market-data";
+import { intradaySeries, marketIndices, type Board, type Instrument } from "@/lib/market-data";
+import { flashClass, useMarket } from "@/components/market/MarketProvider";
+import { useWatchlistStore } from "@/lib/store/hooks";
+import { PriceAlerts } from "./PriceAlerts";
 
 type Filter = "fav" | Board;
 
@@ -19,11 +22,13 @@ function price(i: Instrument, v = i.price) {
   return `${i.currency === "USD" ? "U$S " : "$"}${formatDecimal(v)}`;
 }
 
-export function QuotesView() {
-  const [filter, setFilter] = useState<Filter>("Panel Líder");
+export function QuotesView({ initialFilter = "Panel Líder", initialSymbol = "GGAL" }: { initialFilter?: Filter; initialSymbol?: string }) {
+  const { quotes: instruments, moves, lastTick } = useMarket();
+  const [filter, setFilter] = useState<Filter>(initialFilter);
   const [query, setQuery] = useState("");
-  const [favs, setFavs] = useState<Set<string>>(() => new Set(["GGAL", "YPFD", "AAPL", "MELI"]));
-  const [selected, setSelected] = useState("GGAL");
+  const [watch, setWatch] = useWatchlistStore();
+  const favs = useMemo(() => new Set(watch), [watch]);
+  const [selected, setSelected] = useState(initialSymbol);
   const [range, setRange] = useState<"1D" | "5D" | "1M" | "1A">("1D");
 
   const rows = useMemo(() => {
@@ -31,18 +36,15 @@ export function QuotesView() {
     return instruments
       .filter((i) => (filter === "fav" ? favs.has(i.symbol) : i.board === filter))
       .filter((i) => !q || i.symbol.toLowerCase().includes(q) || i.name.toLowerCase().includes(q));
-  }, [filter, query, favs]);
+  }, [filter, query, favs, instruments]);
 
   const sel = instruments.find((i) => i.symbol === selected) ?? instruments[0];
-  const series = useMemo(() => intradaySeries(`${sel.symbol}-${range}`, sel.price, range === "1D" ? 40 : 60), [sel, range]);
+  // Serie con el precio de referencia (estable); el último punto sigue al precio en vivo.
+  const baseSeries = useMemo(() => intradaySeries(`${sel.symbol}-${range}`, sel.price, range === "1D" ? 40 : 60), [sel.symbol, range]); // eslint-disable-line react-hooks/exhaustive-deps
+  const series = [...baseSeries.slice(0, -1), sel.price];
 
   function toggleFav(symbol: string) {
-    setFavs((prev) => {
-      const next = new Set(prev);
-      if (next.has(symbol)) next.delete(symbol);
-      else next.add(symbol);
-      return next;
-    });
+    setWatch((prev) => (prev.includes(symbol) ? prev.filter((s) => s !== symbol) : [...prev, symbol]));
   }
 
   return (
@@ -51,7 +53,7 @@ export function QuotesView() {
         <Badge tone="positive" className="uppercase">
           <StatusDot /> Mercado abierto BYMA
         </Badge>
-        <span className="text-label text-fg-subtle">Rueda normal 11:00 a 17:00 hs · Liquidación CI / 24hs · Últ. sincro 14:32:08</span>
+        <span className="text-label text-fg-subtle">Rueda normal 11:00 a 17:00 hs · Liquidación CI / 24hs · Últ. sincro {lastTick || "14:32:08"}</span>
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -65,10 +67,10 @@ export function QuotesView() {
         ))}
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
         <Panel
           title="Cotizaciones en tiempo real"
-          subtitle="Tocá una fila para ver el detalle. La estrella agrega a favoritos."
+          subtitle="Tocá una fila para ver el detalle. La estrella agrega a favoritos (compartidos con tu watchlist)."
           className="min-w-0"
           actions={
             <label className="flex items-center gap-2 rounded-lg bg-surface-high px-3 py-1.5">
@@ -143,7 +145,7 @@ export function QuotesView() {
                         </span>
                       </td>
                       <td className={`${table.td} text-fg-subtle`}>{i.sector}</td>
-                      <td className={`${table.td} text-right font-mono font-semibold`}>{price(i)}</td>
+                      <td key={i.price} className={`${table.td} text-right font-mono font-semibold ${flashClass(moves[i.symbol])}`}>{price(i)}</td>
                       <td className={`${table.td} text-right font-mono`}>
                         <Change value={i.changePct} />
                       </td>
@@ -209,6 +211,7 @@ export function QuotesView() {
               <p className="text-label pb-1 uppercase text-fg-subtle">Libro de órdenes (5 puntas)</p>
               <OrderBook symbol={sel.symbol} price={sel.price} compact />
             </div>
+            <PriceAlerts symbol={sel.symbol} price={sel.price} />
             <div className="grid grid-cols-2 gap-2">
               <ButtonLink href={`/operar?especie=${sel.symbol}`} variant="buy" icon="add_circle">
                 Comprar {sel.symbol}
@@ -220,7 +223,7 @@ export function QuotesView() {
           </div>
         </Panel>
       </div>
-      <p className="text-label text-fg-subtle">Prototipo · datos de ejemplo. Las cotizaciones no se actualizan en tiempo real.</p>
+      <p className="text-label text-fg-subtle">Demo · feed simulado: los precios se mueven solos cada pocos segundos (se pueden pausar o acelerar desde Operar).</p>
     </div>
   );
 }

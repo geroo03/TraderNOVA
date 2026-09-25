@@ -2,23 +2,28 @@
 
 import { useState } from "react";
 import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
 import { MsIcon } from "@/components/ui/MsIcon";
 import { table } from "@/components/ui/Page";
 import { Tabs } from "@/components/ui/Tabs";
 import type { MsIconName } from "@/components/ui/ms-icon-names";
-import { movements, type MovementKind } from "@/lib/accounts";
+import { useTrading } from "@/components/trading/TradingProvider";
+import type { MovementKind } from "@/lib/trading";
 import { formatDecimal } from "@/lib/format";
+import { downloadFile, stamp, toCsv } from "@/lib/download";
 
 const kindIcon: Record<MovementKind, { icon: MsIconName; cls: string }> = {
   deposit: { icon: "south_west", cls: "text-positive bg-positive/15" },
   withdrawal: { icon: "north_east", cls: "text-negative bg-alert/15" },
   mep: { icon: "currency_exchange", cls: "text-primary bg-primary/15" },
   income: { icon: "payments", cls: "text-positive bg-positive/15" },
+  caucion: { icon: "savings", cls: "text-primary bg-primary/15" },
 };
 
 type Filter = "all" | MovementKind;
 
 export function MovementsTable() {
+  const { movements } = useTrading();
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
@@ -34,18 +39,35 @@ export function MovementsTable() {
           value={filter}
           onChange={setFilter}
           items={[
-            { id: "all", label: "Todos" },
+            { id: "all", label: "Todos", count: movements.length },
             { id: "deposit", label: "Depósitos" },
             { id: "withdrawal", label: "Retiros" },
             { id: "mep", label: "Operaciones MEP" },
+            { id: "caucion", label: "Cauciones" },
             { id: "income", label: "Dividendos & rentas" },
           ]}
         />
-        <label className="flex items-center gap-2 rounded-lg bg-surface-high px-3 py-1.5">
-          <MsIcon name="search" size={16} className="text-fg-subtle" />
-          <span className="sr-only">Buscar movimiento</span>
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar por ID, banco…" className="w-40 bg-transparent text-xs outline-none" />
-        </label>
+        <div className="flex gap-2">
+          <label className="flex items-center gap-2 rounded-lg bg-surface-high px-3 py-1.5">
+            <MsIcon name="search" size={16} className="text-fg-subtle" />
+            <span className="sr-only">Buscar movimiento</span>
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar por ID, banco…" className="w-40 bg-transparent text-xs outline-none" />
+          </label>
+          <Button
+            size="sm"
+            variant="secondary"
+            icon="download"
+            disabled={rows.length === 0}
+            onClick={() =>
+              downloadFile(
+                `movimientos-nodo_${stamp()}.csv`,
+                toCsv(["fecha", "tipo", "detalle", "referencia", "contraparte", "monto", "moneda", "estado"], rows.map((m) => [m.date, m.kind, m.title, m.reference, m.counterparty, m.amount, m.currency, m.status])),
+              )
+            }
+          >
+            CSV
+          </Button>
+        </div>
       </div>
       <div className={table.wrap}>
         <table className={`${table.table} min-w-[760px]`}>
@@ -81,7 +103,7 @@ export function MovementsTable() {
                     {formatDecimal(Math.abs(m.amount))}
                   </td>
                   <td className={`${table.td} text-right`}>
-                    <Badge tone={m.status === "En proceso" ? "primary" : "positive"} pill>
+                    <Badge tone={m.status === "En proceso" ? "primary" : m.status === "Rechazado" ? "negative" : "positive"} pill>
                       {m.status}
                     </Badge>
                   </td>

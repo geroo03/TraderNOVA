@@ -1,16 +1,14 @@
 import type { Metadata } from "next";
 import { FundingNotice } from "@/components/accounts/FundingNotice";
+import { AccountStats, LinkedAccountsList, MoneyActionButton } from "@/components/accounts/AccountLive";
 import { MovementsTable } from "@/components/accounts/MovementsTable";
 import { Badge, StatusDot } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { CopyField } from "@/components/ui/CopyField";
 import { MsIcon } from "@/components/ui/MsIcon";
-import { PageHeader, Panel, Stat } from "@/components/ui/Page";
-import { depositDetails as d, linkedAccounts } from "@/lib/accounts";
-import { formatDecimal } from "@/lib/format";
+import { PageHeader, Panel } from "@/components/ui/Page";
+import { depositDetails as d } from "@/lib/accounts";
 import { currentUser } from "@/lib/mock-data";
-import { accountBalances as b } from "@/lib/portfolio";
 
 export const metadata: Metadata = { title: "Cuentas y Fondos · Nodo Trading" };
 
@@ -36,9 +34,7 @@ export default function CuentasPage() {
       />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat label="Disponible ARS (inmediato)" value={`$${formatDecimal(b.arsAvailable)}`} badge={<Badge tone="positive">T+0</Badge>} hint="Listo para operar o retirar" />
-        <Stat label="Disponible USD (MEP)" value={`U$S ${formatDecimal(b.usdAvailable)}`} badge={<Badge tone="primary">Cable listo</Badge>} hint="Transferible a cuenta en USD" />
-        <Stat label="Fondos en liquidación" value={`$${formatDecimal(b.pendingSettlement)}`} badge={<Badge>T+1</Badge>} hint="Sin operaciones pendientes" />
+        <AccountStats />
         <Card className="flex flex-col gap-1 bg-gradient-to-br from-primary-strong/25 to-surface p-3">
           <span className="flex items-center justify-between">
             <span className="flex items-center gap-1 text-sm font-bold"><MsIcon name="bolt" size={16} className="text-primary" /> Fondeo Flash</span>
@@ -49,7 +45,7 @@ export default function CuentasPage() {
         </Card>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
         <Panel title={<><MsIcon name="account_balance" size={18} className="text-primary" /> Datos para transferir a Nodo</>} subtitle="Conciliación automática e inmediata">
           <div className="flex flex-col gap-3">
             <p className="flex gap-2 rounded-lg bg-alert/10 p-3 text-xs text-negative">
@@ -71,44 +67,18 @@ export default function CuentasPage() {
 
         <Panel
           title="Cuentas vinculadas"
-          actions={<Button size="sm" variant="ghost" icon="add">Vincular</Button>}
+          actions={
+            <MoneyActionButton action="link" size="sm" variant="ghost" icon="add">
+              Vincular
+            </MoneyActionButton>
+          }
         >
-          <ul className="flex flex-col gap-2">
-            {linkedAccounts.map((a) => (
-              <li key={a.id} className="rounded-lg bg-surface-high p-3">
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-2">
-                    <span className="flex size-8 items-center justify-center rounded-md bg-primary-strong text-xs font-bold text-on-primary">{a.initials}</span>
-                    <span>
-                      <span className="block text-sm font-semibold">{a.bank}</span>
-                      <span className="text-[11px] text-fg-subtle">
-                        {a.type} en {a.currency === "ARS" ? "pesos" : "dólares"} ({a.currency})
-                      </span>
-                    </span>
-                  </span>
-                  <Badge tone={a.isDefault ? "positive" : "primary"}>{a.isDefault ? "Predeterminada" : "Dólar MEP"}</Badge>
-                </div>
-                <dl className="grid grid-cols-2 gap-2 pt-2 font-mono text-xs">
-                  <div>
-                    <dt className="text-label text-fg-subtle">CBU</dt>
-                    <dd>•••• •••• •••• {a.last4}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-label text-fg-subtle">Alias</dt>
-                    <dd className="truncate">{a.alias}</dd>
-                  </div>
-                </dl>
-                <p className="text-label flex items-center gap-1 pt-2 text-positive">
-                  <MsIcon name="verified" size={12} /> Titular verificado por COELSA
-                </p>
-              </li>
-            ))}
-          </ul>
+          <LinkedAccountsList />
         </Panel>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
-        <Panel title="Aviso de fondeo rápido" subtitle="Avisanos que transferiste para priorizar la conciliación">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+        <Panel title="Aviso de fondeo rápido" subtitle="Avisanos que transferiste: en la demo se acredita a los pocos segundos">
           <FundingNotice />
         </Panel>
         <Panel title={<><MsIcon name="schedule" size={18} className="text-primary" /> Retiro programado express</>} actions={<Badge tone="positive">&lt; 10 min</Badge>}>
@@ -118,9 +88,14 @@ export default function CuentasPage() {
               <span>Costo por extracción</span>
               <span className="text-positive">$0,00</span>
             </p>
-            <Button variant="secondary" icon="north_east" className="self-start">
-              Ir a retirar fondos
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <MoneyActionButton action="withdraw" variant="secondary" icon="north_east">
+                Ir a retirar fondos
+              </MoneyActionButton>
+              <MoneyActionButton action="mep" variant="ghost" icon="currency_exchange">
+                Comprar dólar MEP
+              </MoneyActionButton>
+            </div>
           </div>
         </Panel>
       </div>
@@ -130,7 +105,7 @@ export default function CuentasPage() {
       </Panel>
 
       <p className="text-label text-fg-subtle">
-        Operaciones custodiadas por Nodo Broker S.A., Agente de Liquidación y Compensación Propio (ALyC Nº 942). Prototipo: datos de ejemplo.
+        Operaciones custodiadas por Nodo Broker S.A., Agente de Liquidación y Compensación Propio (ALyC Nº 942). Demo: los movimientos se guardan en este navegador.
       </p>
     </div>
   );
