@@ -1,0 +1,137 @@
+import type { Metadata } from "next";
+import { FundingNotice } from "@/components/accounts/FundingNotice";
+import { MovementsTable } from "@/components/accounts/MovementsTable";
+import { Badge, StatusDot } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { CopyField } from "@/components/ui/CopyField";
+import { MsIcon } from "@/components/ui/MsIcon";
+import { PageHeader, Panel, Stat } from "@/components/ui/Page";
+import { depositDetails as d, linkedAccounts } from "@/lib/accounts";
+import { formatDecimal } from "@/lib/format";
+import { currentUser } from "@/lib/mock-data";
+import { accountBalances as b } from "@/lib/portfolio";
+
+export const metadata: Metadata = { title: "Cuentas y Fondos · Nodo Trading" };
+
+export default function CuentasPage() {
+  return (
+    <div className="flex flex-col gap-4">
+      <PageHeader
+        eyebrow={
+          <>
+            <Badge className="uppercase">Billetera · Liquidación T+0</Badge>
+            <Badge tone="positive" className="uppercase"><StatusDot /> Cobertura 24/7</Badge>
+          </>
+        }
+        title="Cuentas y Fondos"
+        description="Administrá tus transferencias, fondeo inmediato en pesos y dólares MEP, cuentas bancarias declaradas y trazabilidad fiscal CNV."
+        actions={
+          <div className="rounded-xl bg-surface px-3 py-2 text-right">
+            <p className="text-label uppercase text-fg-subtle">Titular registrado</p>
+            <p className="text-sm font-semibold">{currentUser.fullName}</p>
+            <p className="font-mono text-[11px] text-fg-subtle">CUIT 20-38492039-4</p>
+          </div>
+        }
+      />
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <Stat label="Disponible ARS (inmediato)" value={`$${formatDecimal(b.arsAvailable)}`} badge={<Badge tone="positive">T+0</Badge>} hint="Listo para operar o retirar" />
+        <Stat label="Disponible USD (MEP)" value={`U$S ${formatDecimal(b.usdAvailable)}`} badge={<Badge tone="primary">Cable listo</Badge>} hint="Transferible a cuenta en USD" />
+        <Stat label="Fondos en liquidación" value={`$${formatDecimal(b.pendingSettlement)}`} badge={<Badge>T+1</Badge>} hint="Sin operaciones pendientes" />
+        <Card className="flex flex-col gap-1 bg-gradient-to-br from-primary-strong/25 to-surface p-3">
+          <span className="flex items-center justify-between">
+            <span className="flex items-center gap-1 text-sm font-bold"><MsIcon name="bolt" size={16} className="text-primary" /> Fondeo Flash</span>
+            <Badge tone="positive">24/7 activo</Badge>
+          </span>
+          <p className="text-xs text-fg-muted">Acreditación automática vía COELSA.</p>
+          <p className="font-mono text-2xl font-bold">42 <span className="text-xs font-normal text-fg-subtle">segundos promedio</span></p>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+        <Panel title={<><MsIcon name="account_balance" size={18} className="text-primary" /> Datos para transferir a Nodo</>} subtitle="Conciliación automática e inmediata">
+          <div className="flex flex-col gap-3">
+            <p className="flex gap-2 rounded-lg bg-alert/10 p-3 text-xs text-negative">
+              <MsIcon name="warning" size={16} className="mt-0.5" />
+              <span>
+                Transferí exclusivamente desde cuentas a tu nombre ({currentUser.fullName} · CUIT 20-38492039-4). Los fondos de terceros se
+                rechazan y devuelven en 48 hs hábiles.
+              </span>
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <CopyField label="Banco receptor" value={d.bank} mono={false} />
+              <CopyField label="Tipo de cuenta" value={d.accountType} mono={false} />
+              <CopyField label="CBU receptora" value={d.cbu} />
+              <CopyField label="Alias CBU" value={d.alias} />
+            </div>
+            <CopyField label={`Titular · CUIT ${d.cuit}`} value={d.holder} mono={false} />
+          </div>
+        </Panel>
+
+        <Panel
+          title="Cuentas vinculadas"
+          actions={<Button size="sm" variant="ghost" icon="add">Vincular</Button>}
+        >
+          <ul className="flex flex-col gap-2">
+            {linkedAccounts.map((a) => (
+              <li key={a.id} className="rounded-lg bg-surface-high p-3">
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <span className="flex size-8 items-center justify-center rounded-md bg-primary-strong text-xs font-bold text-on-primary">{a.initials}</span>
+                    <span>
+                      <span className="block text-sm font-semibold">{a.bank}</span>
+                      <span className="text-[11px] text-fg-subtle">
+                        {a.type} en {a.currency === "ARS" ? "pesos" : "dólares"} ({a.currency})
+                      </span>
+                    </span>
+                  </span>
+                  <Badge tone={a.isDefault ? "positive" : "primary"}>{a.isDefault ? "Predeterminada" : "Dólar MEP"}</Badge>
+                </div>
+                <dl className="grid grid-cols-2 gap-2 pt-2 font-mono text-xs">
+                  <div>
+                    <dt className="text-label text-fg-subtle">CBU</dt>
+                    <dd>•••• •••• •••• {a.last4}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-label text-fg-subtle">Alias</dt>
+                    <dd className="truncate">{a.alias}</dd>
+                  </div>
+                </dl>
+                <p className="text-label flex items-center gap-1 pt-2 text-positive">
+                  <MsIcon name="verified" size={12} /> Titular verificado por COELSA
+                </p>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+        <Panel title="Aviso de fondeo rápido" subtitle="Avisanos que transferiste para priorizar la conciliación">
+          <FundingNotice />
+        </Panel>
+        <Panel title={<><MsIcon name="schedule" size={18} className="text-primary" /> Retiro programado express</>} actions={<Badge tone="positive">&lt; 10 min</Badge>}>
+          <div className="flex flex-col gap-3 text-xs text-fg-muted">
+            <p>Pedí retirar tus fondos hacia tus cuentas Galicia o BBVA en menos de 10 minutos en horario bancario. Fuera de horario se procesan a primera hora hábil.</p>
+            <p className="flex justify-between rounded-lg bg-surface-high p-2 font-mono">
+              <span>Costo por extracción</span>
+              <span className="text-positive">$0,00</span>
+            </p>
+            <Button variant="secondary" icon="north_east" className="self-start">
+              Ir a retirar fondos
+            </Button>
+          </div>
+        </Panel>
+      </div>
+
+      <Panel title="Historial de movimientos y transferencias" subtitle="Depósitos, retiros, operaciones MEP y rentas de los últimos 30 días">
+        <MovementsTable />
+      </Panel>
+
+      <p className="text-label text-fg-subtle">
+        Operaciones custodiadas por Nodo Broker S.A., Agente de Liquidación y Compensación Propio (ALyC Nº 942). Prototipo: datos de ejemplo.
+      </p>
+    </div>
+  );
+}
