@@ -33,7 +33,7 @@ Un guion de unos 5 minutos para mostrar la demo completa:
 
 1. **Ingresar.** En `/login` las credenciales ya vienen cargadas y cualquier token de 6 dígitos sirve. Si es fuera del horario de BYMA (lunes a viernes de 11 a 17 hs), un aviso ofrece **Abrir rueda de demostración** o practicar en simulación.
 2. **Dashboard.** Los KPIs se recalculan en vivo. Cambiá entre ARS y USD desde la barra superior y probá los rangos del gráfico de rendimiento.
-3. **Operar.** Entrá a `/operar?especie=GGAL`, activá **Stop loss y take profit** y arrastrá las líneas en el gráfico. Enviá la compra y acelerá el feed a **x20**: el stop o el target se dispara solo y aparece una notificación con el resultado.
+3. **Operar.** Entrá a `/operar?especie=GGAL`, probá el gráfico (rueda para zoom, arrastrar para desplazar, **Indicadores**, tipo de gráfico) y tocá **Ampliar** para operar a pantalla completa. Activá **Stop loss y take profit** y arrastrá las líneas en el gráfico. Enviá la compra y acelerá el feed a **x20**: el stop o el target se dispara solo y aparece una notificación con el resultado.
 4. **Simulación.** Activá el interruptor **Simulación** de la barra superior. Operás con $10.000.000 virtuales, separados de la cuenta real.
 5. **Fondos.** En `/cuentas`, avisá una transferencia. A los pocos segundos se acredita y el disponible sube en todas las pantallas. Pedí un retiro de más de $1.000.000: queda pendiente hasta que el staff lo apruebe en **Tesorería**.
 6. **Soporte.** En `/soporte`, abrí una consulta. Pasá a la vista staff (menú de cuenta → **Ir a vista staff**), respondela desde **Desk & Soporte** y volvé: la respuesta está en tu consulta.
@@ -59,8 +59,8 @@ Un guion de unos 5 minutos para mostrar la demo completa:
 | `/dashboard` | Dashboard | Patrimonio, resultado del día, rendimiento mensual, YTD, alpha y poder de compra en vivo, en ARS o USD. Gráfico de rendimiento con 6 rangos, 3 benchmarks, valores al pasar el mouse y estadísticas del rango (máximo, drawdown, Sharpe y rendimiento anualizado). Distribución por clase de activo, mayores variaciones (de tu cartera o de todo el mercado) y órdenes recientes. Accesos rápidos a ingresar dinero, comprar MEP y colocar caución. |
 | `/cotizaciones` | Cotizaciones | Tabla por panel con filtro, favoritos, detalle con gráfico y libro de 5 puntas, alertas de precio y botones de compra y venta. Acepta `?panel=Bono&especie=AL30D`. |
 | `/mercados` | Mercados en vivo | Panel paginado por mercado, sector y plazo de liquidación (CI, 24 hs, 48 hs), watchlist, heatmap del Merval y compra de MEP. |
-| `/operar` | Boleta de operaciones | Compra y venta límite, a mercado y stop límite, con desglose de aranceles, stop loss y take profit, gráfico de velas con líneas arrastrables, libro de ofertas clickeable y caudal en vivo. Acepta `?especie=GGAL&lado=venta`. |
-| `/terminal/[symbol]` | Terminal avanzada | Gráfico grande con RSI y herramientas de dibujo, libro L2, boleta rápida, caudal y pestañas de órdenes abiertas, posiciones e historial. |
+| `/operar` | Boleta de operaciones | Compra y venta límite, a mercado y stop límite, con desglose de aranceles, stop loss y take profit, gráfico profesional (ver abajo) con líneas de orden arrastrables y vista ampliada para operar a pantalla completa, libro de ofertas clickeable y caudal en vivo. Acepta `?especie=GGAL&lado=venta`. |
+| `/terminal/[symbol]` | Terminal avanzada | El mismo gráfico en tamaño grande, libro L2, boleta rápida, caudal y pestañas de órdenes abiertas, posiciones e historial. |
 | `/tenencia` | Mi tenencia | Valuación total y resultados en vivo, saldos con acciones de fondos, curva patrimonial, distribución y tabla ordenable de posiciones con exportación CSV e informe fiscal. |
 | `/ordenes` | Historial de órdenes | Filtros por estado, búsqueda, cancelación, desactivación de stop y target, y exportación CSV. |
 | `/cuentas` | Cuentas y fondos | Datos para transferir, aviso de depósito, retiros (los grandes pasan por Tesorería), compra de MEP, caución con cobro al vencimiento, cuentas bancarias vinculadas (alta, predeterminada y baja) e historial de movimientos exportable. |
@@ -83,6 +83,21 @@ Un guion de unos 5 minutos para mostrar la demo completa:
 | `/admin/auditoria` | Auditoría y roles | Log de auditoría con filtros y CSV, matriz de permisos por rol editable y equipo staff. |
 
 `/admin/*` se puede proteger con usuario y contraseña (ver [Deploy en Vercel](#deploy-en-vercel)).
+
+### Gráfico profesional (Operar y terminal)
+
+| Función | Detalle |
+| --- | --- |
+| Tipos | Velas, barras OHLC, Heikin Ashi, línea y área |
+| Temporalidades | 1m, 5m, 15m, 1H, 1D y 1S, con 320 velas de historia cada una |
+| Escalas | Eje de precios con valores redondos y etiqueta del último precio; eje de tiempo con la fecha al abrir cada rueda |
+| Cruz de mira | Línea vertical y horizontal con precio y fecha/hora; la leyenda muestra apertura, máximo, mínimo, cierre, variación y volumen de la vela |
+| Zoom y desplazamiento | Rueda del mouse (anclada en el cursor), botones, teclado (+, −, flechas, 0) y arrastrar; doble clic ajusta la vista |
+| Indicadores | EMA 20, EMA 50, SMA 200, Bandas de Bollinger, VWAP y volumen sobre el gráfico; RSI y MACD en paneles propios. Se recuerdan entre pantallas y recargas |
+| Dibujos | Línea de tendencia, línea horizontal, medición (% y velas) y notas; acompañan el zoom y se guardan por especie y temporalidad |
+| Órdenes | Líneas de entrada, stop y target arrastrables (o con flechas del teclado) sincronizadas con la boleta |
+| Vista ampliada | Ocupa toda la ventana con la boleta y el libro al costado; opción de pantalla completa del navegador; Esc cierra |
+| Exportar | Descarga en CSV de las velas visibles |
 
 ### Funciones que están en todas las pantallas
 
@@ -124,6 +139,13 @@ flowchart LR
 - La velocidad es configurable: **x1** es un tick cada 2 s, **x5** cada 1 s y **x20** cada 0,5 s, y a mayor velocidad los movimientos son más amplios. También se puede pausar.
 - Cada tick alimenta el caudal (time & sales), el destello de color de los precios y la última vela del gráfico. El resto de las velas queda fijo para que el gráfico no tiemble.
 - El primer render usa los precios estáticos, así el HTML del servidor y el del cliente coinciden.
+
+### Gráfico
+
+- `src/components/trading/chart/TradingChart.tsx` mide el contenedor (ResizeObserver) y dibuja en SVG con píxeles reales, así los textos de los ejes no se deforman.
+- La historia es sintética y fija por especie y temporalidad (`priceCandles`); solo la última vela sigue el precio en vivo, para que el gráfico no "tiemble".
+- Los indicadores (`src/lib/indicators.ts`) se calculan sobre toda la historia y se dibuja solo la ventana visible, así una EMA no arranca "de cero" al hacer zoom.
+- El tiempo de cada vela (`src/lib/chart-time.ts`) respeta la rueda de 11 a 17 hs y los fines de semana, y es igual en servidor y cliente.
 
 ### Horario de rueda
 
@@ -286,7 +308,7 @@ Hay que correrlo cada vez que se usa un ícono nuevo; si no, TypeScript marca el
 npm test
 ```
 
-Hay 43 tests en 6 archivos, todos sobre la lógica pura de `src/lib`:
+Hay 52 tests en 7 archivos, todos sobre la lógica pura de `src/lib`:
 
 | Archivo | Qué cubre |
 | --- | --- |
@@ -295,6 +317,7 @@ Hay 43 tests en 6 archivos, todos sobre la lógica pura de `src/lib`:
 | `bracket.test.ts` | Cálculo y validación de stop y target, riesgo/beneficio y desvío contra el mercado. |
 | `trading.test.ts` | Saldo inicial igual al del Figma, reservas, PPC, bonos en USD, ventas, depósitos y retiros; motor de ejecución (límite, stop, bracket, take profit, parciales, simulación) y vencimiento de órdenes. |
 | `session.test.ts` | Horario de BYMA, feriados (trasladables, Semana Santa, fines de semana largos), próxima apertura, vencimiento de órdenes del día y textos de horario. |
+| `indicators.test.ts` | SMA, EMA, Bollinger, RSI de Wilder, MACD, VWAP por rueda, Heikin Ashi, escala de precios y tiempo de las velas. |
 | `performance.test.ts` | Series de rendimiento determinísticas que terminan en el patrimonio, benchmarks, máximo, drawdown, anualización y calibración de valores creíbles. |
 
 ### De punta a punta (Playwright)
@@ -305,13 +328,14 @@ npm run e2e                       # compila y corre las pruebas
 PW_CHANNEL=chrome npm run e2e     # alternativa: usar el Chrome instalado
 ```
 
-Hay 39 pruebas en `e2e/` que corren contra el build de producción. Cada una arranca con el almacenamiento limpio y falla si la página muestra errores de consola.
+Hay 43 pruebas en `e2e/` que corren contra el build de producción. Cada una arranca con el almacenamiento limpio y falla si la página muestra errores de consola.
 
 | Archivo | Qué cubre |
 | --- | --- |
 | `smoke.spec.ts` | Las 23 rutas cargan sin errores, el buscador ⌘K y el tema claro persistente. |
 | `trading.spec.ts` | Compra que se ejecuta en el acto y persiste al recargar, venta sin tenencia bloqueada, stop/target que se disparan solos, modo simulación y KPIs del dashboard en simulación. |
 | `flows.spec.ts` | Depósito que se acredita, retiro grande aprobado por Tesorería, bloqueo del inversor por Compliance, ticket inversor ↔ staff y log de auditoría. |
+| `chart.spec.ts` | Escalas y leyenda, tipos y temporalidades, indicadores que se recuerdan al recargar, zoom con teclado y vista ampliada con boleta. |
 | `session.spec.ts` | Con reloj fijo en sábado y en un feriado: mercado cerrado con su motivo, órdenes para la próxima rueda, rueda de demostración y que no se ejecute nada al cargar. |
 
 ### Integración continua
@@ -337,7 +361,8 @@ src/
 │   ├── charts/                 LineChart, CandleChart, BarChart, Donut
 │   ├── layout/                 AppShell, Sidebar, Topbar, buscador ⌘K, notificaciones, menú de cuenta, tema
 │   ├── market/                 MarketProvider (feed), controles del feed, sesión de mercado
-│   ├── trading/                TradingProvider, boleta, libro, caudal, gráfico con líneas y dibujos, órdenes
+│   ├── trading/                TradingProvider, boleta, libro, caudal, órdenes, vista ampliada (ChartWorkspace)
+│   │   └── chart/              Gráfico profesional (TradingChart) y sus preferencias
 │   ├── dashboard/              KPIs, rendimiento, distribución, variaciones, insight, órdenes recientes
 │   ├── markets/                Cotizaciones, mercados, alertas de precio
 │   ├── portfolio/              Tenencia en vivo (usePortfolio), rendimiento (usePerformance), posiciones, curva
@@ -351,6 +376,8 @@ src/
 │   ├── trading.ts              Órdenes, saldo calculado, motor de ejecución y vencimientos (funciones puras)
 │   ├── session.ts  holidays.ts Horario de rueda de BYMA y feriados nacionales
 │   ├── performance.ts          Series de rendimiento sintéticas y estadísticas (Sharpe, drawdown)
+│   ├── indicators.ts           Indicadores técnicos (EMA, SMA, Bollinger, RSI, MACD, VWAP, Heikin Ashi)
+│   ├── chart-time.ts           Temporalidades y tiempo de cada vela
 │   ├── bracket.ts              Stop loss / take profit, plantillas, riesgo
 │   ├── order-costs.ts          Aranceles en centavos enteros
 │   ├── orders.ts               Montos por especie (bonos cada 100 VN)
