@@ -3,6 +3,7 @@ import Link from "next/link";
 import { BarChart } from "@/components/charts/BarChart";
 import { LineChart } from "@/components/charts/LineChart";
 import { DeskActivity } from "@/components/admin/DeskActivity";
+import { SessionBadge } from "@/components/market/SessionBadge";
 import { Badge, StatusDot, type Tone } from "@/components/ui/Badge";
 import { RefreshDmaButton, ExportButton } from "@/components/admin/AdminActions";
 import { MsIcon } from "@/components/ui/MsIcon";
@@ -21,7 +22,7 @@ export default function AdminDashboardPage() {
         eyebrow={
           <>
             <Badge tone="primary">ALyC 942</Badge>
-            <Badge tone="positive" className="uppercase"><StatusDot /> Rueda BYMA en curso</Badge>
+            <SessionBadge openText="Rueda BYMA en curso" />
             <span className="text-label text-fg-subtle">FIX: BYMA_01_PROD (3ms)</span>
           </>
         }

@@ -6,11 +6,12 @@ import { useMarket, type FeedSpeed } from "./MarketProvider";
 
 /** Pausa y velocidad del feed simulado: acelerarlo sirve para ver stops y targets en acción. */
 export function FeedControls() {
-  const { paused, setPaused, speed, setSpeed, lastTick } = useMarket();
+  const { paused, setPaused, speed, setSpeed, lastTick, live, session } = useMarket();
+  const status = paused ? "Feed en pausa" : !live ? `Mercado cerrado · ${session.label}` : `Feed en vivo${lastTick ? ` · ${lastTick}` : ""}`;
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       <span className="text-label flex items-center gap-1 text-fg-subtle">
-        <StatusDot tone={paused ? "neutral" : "positive"} /> {paused ? "Feed en pausa" : `Feed en vivo${lastTick ? ` · ${lastTick}` : ""}`}
+        <StatusDot tone={live ? "positive" : "neutral"} /> {status}
       </span>
       <button
         type="button"

@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Sidebar, type ShellVariant } from "./Sidebar";
 import { Topbar } from "./Topbar";
-import { SimBanner } from "./SimMode";
+import { StatusBanners } from "./StatusBanners";
 
 const footerCopy: Record<ShellVariant, [string, string]> = {
   user: [
@@ -22,7 +22,7 @@ export function AppShell({ variant, children }: { variant: ShellVariant; childre
       <Sidebar variant={variant} />
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar variant={variant} />
-        {variant === "user" && <SimBanner />}
+        {variant === "user" && <StatusBanners />}
         <main className="flex-1 p-4">{children}</main>
         <footer className="flex flex-wrap items-center justify-between gap-4 bg-surface-lowest px-4 py-2">
           <p className="flex items-center gap-2">

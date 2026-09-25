@@ -21,9 +21,9 @@ import { useSettingsStore } from "@/lib/store/hooks";
 
 export function OperarView({ symbol, side }: { symbol: string; side: Side }) {
   const [current, setCurrent] = useState(symbol);
-  const { quote } = useMarket();
+  const { quote, session, live } = useMarket();
   const instrument = quote(current);
-  const { orders, submit, cancel, cancelAll, cancelBracket, available, sellable, simMode } = useTrading();
+  const { orders, submit, cancel, cancelAll, cancelBracket, available, sellable, simMode, restriction } = useTrading();
   const [settings] = useSettingsStore();
   const [levels, setLevels] = useTicketLevels(instrument);
   const openCount = orders.filter(isOpenOrder).length;
@@ -64,6 +64,9 @@ export function OperarView({ symbol, side }: { symbol: string; side: Side }) {
             available={available(instrument.currency)}
             sellable={sellable(instrument.symbol)}
             confirmByDefault={settings.confirmOrders}
+            restriction={restriction}
+            marketOpen={session.open}
+            sessionLabel={session.label}
             simulated={simMode}
             levels={levels}
             onLevelsChange={setLevels}
@@ -76,7 +79,14 @@ export function OperarView({ symbol, side }: { symbol: string; side: Side }) {
           <Panel title="Libro de ofertas" actions={<Badge>Nivel 2</Badge>}>
             <OrderBook symbol={instrument.symbol} price={instrument.price} onPriceClick={pickPrice} />
           </Panel>
-          <Panel title="Caudal en vivo" actions={<Badge tone="positive"><StatusDot /> Feed online</Badge>}>
+          <Panel
+            title="Caudal en vivo"
+            actions={
+              <Badge tone={live ? "positive" : "neutral"}>
+                <StatusDot tone={live ? "positive" : "neutral"} /> {live ? "Feed online" : "Sin operaciones"}
+              </Badge>
+            }
+          >
             <TimeAndSales symbol={instrument.symbol} />
           </Panel>
         </div>

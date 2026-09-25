@@ -230,6 +230,12 @@ function PreferencesSection() {
             <option value="USD">Dólares (USD MEP)</option>
           </select>
         </Row>
+        <Row title="Horario de rueda" text="Real: BYMA opera de lunes a viernes de 11 a 17 hs (hora argentina). Demostración: la rueda queda siempre abierta.">
+          <select value={settings.sessionMode} onChange={(e) => setSettings((s) => ({ ...s, sessionMode: e.target.value as DemoSettings["sessionMode"] }))} className={`${fieldCls} w-40`}>
+            <option value="real">Horario real</option>
+            <option value="always">Siempre abierta (demo)</option>
+          </select>
+        </Row>
         <Row title="Confirmar antes de enviar órdenes" text="Valor inicial del check en la boleta.">
           <Switch label="Confirmar órdenes" checked={settings.confirmOrders} onChange={(v) => setSettings((s) => ({ ...s, confirmOrders: v }))} />
         </Row>

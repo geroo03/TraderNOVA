@@ -7,14 +7,9 @@ import { Card } from "@/components/ui/Card";
 import { MsIcon } from "@/components/ui/MsIcon";
 import { Panel, table } from "@/components/ui/Page";
 import { Tabs } from "@/components/ui/Tabs";
-import { treasuryLog, treasuryQueue, type TreasuryItem } from "@/lib/admin-data";
+import { treasuryQueue, type TreasuryItem } from "@/lib/admin-data";
 import { useToast } from "@/components/ui/Toast";
-import { useLocalStore } from "@/lib/store/local-store";
-import { KEYS } from "@/lib/store/demo-data";
-import { pushAudit } from "@/lib/store/hooks";
-
-type LogRow = (typeof treasuryLog)[number];
-const SEED = { queue: treasuryQueue, log: treasuryLog as LogRow[] };
+import { pushAudit, resolveInvestorMovement, useTreasuryStore } from "@/lib/store/hooks";
 import { formatDecimal } from "@/lib/format";
 
 type Filter = "all" | "withdrawals" | "observed" | "vip";
@@ -23,7 +18,7 @@ const money = (t: TreasuryItem) => `${t.currency === "USD" ? "U$S " : "$"}${form
 
 export function TreasuryView() {
   const toast = useToast();
-  const [state, setState] = useLocalStore(KEYS.treasury, SEED);
+  const [state, setState] = useTreasuryStore();
   const { queue, log } = state;
   const [batching, setBatching] = useState(false);
   const [filter, setFilter] = useState<Filter>("all");
@@ -33,7 +28,7 @@ export function TreasuryView() {
   const rows = queue.filter((t) =>
     filter === "all" ? true : filter === "withdrawals" ? t.kind === "RETIRO" && !t.observed : filter === "observed" ? t.observed : t.vip,
   );
-  const inspected = queue.find((t) => t.id === inspectId);
+  const inspected = queue.find((t) => t.id === inspectId) ?? queue[0];
 
   function resolve(ids: string[], approved: boolean) {
     resolveWith(ids, approved, "Martín Benítez");
@@ -56,6 +51,8 @@ export function TreasuryView() {
         ...prev.log,
       ],
     }));
+    // Retiros del inversor de la demo: su movimiento pasa a acreditado o rechazado y se le notifica.
+    for (const t of items) if (t.movementId) resolveInvestorMovement(t.movementId, approved);
     for (const t of items)
       pushAudit({ who: operator, role: "Tesorería", action: `${t.kind === "RETIRO" ? "Retiro" : "Depósito"} ${approved ? "aprobado" : "rechazado"}`, ref: t.id, detail: `${t.client} · ${money(t)}` });
     toast({ title: `${items.length} movimiento(s) ${approved ? "aprobado(s)" : "rechazado(s)"}`, text: items.map((t) => t.id).join(", "), tone: approved ? "positive" : "neutral" });
@@ -147,6 +144,7 @@ export function TreasuryView() {
                       </td>
                       <td className={table.td}>
                         <Badge tone={t.kind === "RETIRO" ? "negative" : "positive"}>{t.kind}</Badge>
+                        {t.movementId && <Badge tone="primary" className="ml-1">APP</Badge>}
                         <span className="block pt-1 font-mono text-[10px] text-fg-subtle">{t.id}</span>
                       </td>
                       <td className={table.td}>

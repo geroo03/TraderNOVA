@@ -11,7 +11,18 @@ import { FundingNotice } from "./FundingNotice";
 import { depositDetails as d, type LinkedAccount } from "@/lib/accounts";
 import { formatDecimal } from "@/lib/format";
 import { caucion, dollarRates } from "@/lib/mock-data";
-import { useLinkedAccountsStore } from "@/lib/store/hooks";
+import { pushTreasury, useLinkedAccountsStore } from "@/lib/store/hooks";
+import { currentUser } from "@/lib/mock-data";
+import { nowTime } from "@/lib/download";
+
+/** Retiros hasta este monto se procesan solos (STP); los mayores pasan por aprobación de Tesorería. */
+export const STP_LIMIT = { ARS: 1_000_000, USD: 1_000 } as const;
+/** En la demo el plazo de la caución corre acelerado. */
+const CAUCION_DAY_MS = 60_000;
+
+function Restricted({ text }: { text: string }) {
+  return <p role="alert" className="rounded-lg bg-alert/10 p-3 text-xs text-negative">{text}</p>;
+}
 
 export type MoneyAction = "deposit" | "withdraw" | "mep" | "caucion" | "link";
 
@@ -35,7 +46,7 @@ function DepositBody({ onClose }: { onClose: () => void }) {
 
 function WithdrawBody({ onClose }: { onClose: () => void }) {
   const toast = useToast();
-  const { account, addMovement } = useTrading();
+  const { account, addMovement, accountRestriction } = useTrading();
   const [accounts] = useLinkedAccountsStore();
   const [accId, setAccId] = useState(accounts[0]?.id ?? "");
   const acc = accounts.find((a) => a.id === accId);
@@ -44,19 +55,45 @@ function WithdrawBody({ onClose }: { onClose: () => void }) {
   const [amount, setAmount] = useState(0);
   const error = amount <= 0 ? null : amount > max ? `Supera tu disponible (${money(max, cur)}).` : null;
 
+  const manual = amount > STP_LIMIT[cur];
+
   function submit() {
-    if (!acc || amount <= 0 || error) return;
-    addMovement({
-      kind: "withdrawal",
+    if (!acc || amount <= 0 || error || accountRestriction) return;
+    const common = {
+      kind: "withdrawal" as const,
       title: cur === "USD" ? "Retiro a cuenta en dólares" : "Retiro a cuenta bancaria",
       counterparty: `${acc.bank} · CBU ***${acc.last4}`,
       amount: -amount,
       currency: cur,
-      status: "En proceso",
-    }, 10_000);
-    toast({ title: "Retiro solicitado", text: `${money(amount, cur)} a ${acc.bank}. Llega en menos de 10 minutos.` });
+      status: "En proceso" as const,
+    };
+    if (manual) {
+      // Queda "En proceso" hasta que Tesorería lo apruebe o rechace desde la vista staff.
+      const mov = addMovement(common);
+      pushTreasury({
+        item: {
+          id: `TRX-${mov.id.slice(4)}`,
+          kind: "RETIRO",
+          client: currentUser.fullName,
+          account: currentUser.accountNumber.split("-")[0],
+          amount,
+          currency: cur,
+          bank: `${acc.bank} · CBU ***${acc.last4}`,
+          cuitMatch: true,
+          risk: "Monto > STP",
+          movementId: mov.id,
+        },
+      });
+      toast({ title: "Retiro en revisión", text: `${money(amount, cur)} supera el límite automático: lo aprueba Tesorería (vista staff).`, tone: "primary" });
+    } else {
+      addMovement(common, { settleInMs: 10_000 });
+      pushTreasury({ log: { time: nowTime(), operator: "Bot STP COELSA", op: `Retiro automático · ${currentUser.fullName}`, amount: `-${money(amount, cur)}`, ref: "STP", status: "Transferido" } });
+      toast({ title: "Retiro solicitado", text: `${money(amount, cur)} a ${acc.bank}. Llega en menos de 10 minutos.` });
+    }
     onClose();
   }
+
+  if (accountRestriction) return <Restricted text={accountRestriction} />;
 
   return (
     <div className="flex flex-col gap-3">
@@ -83,8 +120,13 @@ function WithdrawBody({ onClose }: { onClose: () => void }) {
         <span>Costo por extracción</span>
         <span className="text-positive">$0,00</span>
       </p>
+      <p className="text-[11px] text-fg-subtle">
+        {manual
+          ? `Supera ${money(STP_LIMIT[cur], cur)}: queda pendiente hasta que Tesorería lo apruebe.`
+          : `Hasta ${money(STP_LIMIT[cur], cur)} se transfiere automáticamente.`}
+      </p>
       <Button icon="north_east" disabled={amount <= 0 || !!error} onClick={submit}>
-        Confirmar retiro
+        {manual ? "Solicitar retiro" : "Confirmar retiro"}
       </Button>
     </div>
   );
@@ -92,7 +134,7 @@ function WithdrawBody({ onClose }: { onClose: () => void }) {
 
 function MepBody({ onClose }: { onClose: () => void }) {
   const toast = useToast();
-  const { account, addMovement, simMode } = useTrading();
+  const { account, addMovement, simMode, accountRestriction } = useTrading();
   const [ars, setArs] = useState(100_000);
   const usd = Math.floor((ars / mep) * 100) / 100;
   const error = ars > account.availableArs ? `Supera tu disponible (${money(account.availableArs, "ARS")}).` : null;
@@ -105,6 +147,8 @@ function MepBody({ onClose }: { onClose: () => void }) {
     toast({ title: "Compraste dólar MEP", text: `${money(ars, "ARS")} → U$S ${formatDecimal(usd)} en tu cuenta en dólares.` });
     onClose();
   }
+
+  if (accountRestriction) return <Restricted text={accountRestriction} />;
 
   return (
     <div className="flex flex-col gap-3">
@@ -130,7 +174,7 @@ function MepBody({ onClose }: { onClose: () => void }) {
 
 function CaucionBody({ onClose }: { onClose: () => void }) {
   const toast = useToast();
-  const { account, addMovement } = useTrading();
+  const { account, addMovement, accountRestriction } = useTrading();
   const [amount, setAmount] = useState(Math.min(caucion.availableToPlace, Math.floor(account.availableArs)));
   const [days, setDays] = useState(1);
   const interest = (amount * (caucion.tna / 100) * days) / 365;
@@ -138,10 +182,23 @@ function CaucionBody({ onClose }: { onClose: () => void }) {
 
   function submit() {
     if (amount <= 0 || error) return;
-    addMovement({ kind: "caucion", title: `Caución colocadora ${days} día${days > 1 ? "s" : ""} · TNA ${formatDecimal(caucion.tna)}%`, counterparty: `Interés estimado ${money(interest, "ARS")}`, amount: -amount, currency: "ARS", status: "Colocada" });
+    addMovement(
+      {
+        kind: "caucion",
+        title: `Caución colocadora ${days} día${days > 1 ? "s" : ""} · TNA ${formatDecimal(caucion.tna)}%`,
+        counterparty: `Interés estimado ${money(interest, "ARS")}`,
+        amount: -amount,
+        currency: "ARS",
+        status: "Colocada",
+        payout: Math.round((amount + interest) * 100) / 100,
+      },
+      { maturesInMs: days * CAUCION_DAY_MS },
+    );
     toast({ title: "Caución colocada", text: `${money(amount, "ARS")} a ${days} día(s). Cobrás ${money(interest, "ARS")} de interés al vencimiento.` });
     onClose();
   }
+
+  if (accountRestriction) return <Restricted text={accountRestriction} />;
 
   return (
     <div className="flex flex-col gap-3">
@@ -160,6 +217,7 @@ function CaucionBody({ onClose }: { onClose: () => void }) {
         <div className="flex justify-between"><dt className="text-fg-subtle">Interés estimado</dt><dd className="text-positive">+{money(interest, "ARS")}</dd></div>
         <div className="flex justify-between border-t border-surface-higher pt-1 font-semibold"><dt>Total al vencimiento</dt><dd>{money(amount + interest, "ARS")}</dd></div>
       </dl>
+      <p className="text-[11px] text-fg-subtle">Demo: el plazo corre acelerado (1 día = 1 minuto). Al vencer se acreditan capital e interés.</p>
       <Button icon="savings" disabled={amount <= 0 || !!error} onClick={submit}>
         Colocar caución
       </Button>

@@ -39,7 +39,7 @@ export interface PriceAlert {
 
 export const SEED_ORDERS: LiveOrder[] = [
   { id: "NYM-92841", time: "14:32:10", symbol: "GGAL", side: "buy", type: "Límite", term: "24hs", quantity: 200, filled: 0, price: 4_820, status: "working", currency: "ARS" },
-  { id: "NYM-92790", time: "12:40:02", symbol: "AL30D", side: "sell", type: "Límite", term: "48hs", quantity: 1_000, filled: 600, price: 58.4, status: "partial", currency: "USD", settledQty: 600 },
+  { id: "NYM-92790", time: "12:40:02", symbol: "AL30D", side: "sell", type: "Límite", term: "48hs", quantity: 1_000, filled: 600, price: 58.6, status: "partial", currency: "USD", settledQty: 600 },
   { id: "NYM-92702", time: "12:15:04", symbol: "AAPL", side: "buy", type: "Límite", term: "CI", quantity: 50, filled: 50, price: 18_350, status: "executed", currency: "ARS", settledQty: 50 },
   { id: "NYM-92655", time: "11:48:31", symbol: "MELI", side: "buy", type: "Mercado", term: "24hs", quantity: 20, filled: 20, price: 26_690, status: "executed", currency: "ARS", settledQty: 20 },
   { id: "NYM-92610", time: "11:05:22", symbol: "TXAR", side: "sell", type: "Límite", term: "24hs", quantity: 800, filled: 0, price: 1_150, status: "cancelled", currency: "ARS" },
@@ -74,7 +74,7 @@ export interface DemoNotification {
 
 export const SEED_NOTIFICATIONS: DemoNotification[] = [
   { id: "n1", title: "Dividendo acreditado", text: "Cobraste U$S 18,50 de AAPL en tu cuenta en dólares.", time: "09:12", read: false, tone: "positive", href: "/cuentas" },
-  { id: "n2", title: "Orden parcialmente ejecutada", text: "AL30D: 600 de 1.000 nominales vendidos a U$S 58,40.", time: "12:40", read: false, tone: "primary", href: "/ordenes" },
+  { id: "n2", title: "Orden parcialmente ejecutada", text: "AL30D: 600 de 1.000 nominales vendidos a U$S 58,60.", time: "12:40", read: false, tone: "primary", href: "/ordenes" },
   { id: "n3", title: "Nuevo informe disponible", text: "Tu resumen fiscal de enero ya está listo para descargar.", time: "Ayer", read: true, tone: "neutral", href: "/informes" },
 ];
 
@@ -88,6 +88,8 @@ export interface DemoSettings {
   twoFactor: boolean;
   notify: { fills: boolean; deposits: boolean; news: boolean; priceAlerts: boolean; channelEmail: boolean; channelWhatsapp: boolean; channelPush: boolean };
   riskProfile: "Conservador" | "Moderado" | "Agresivo" | null;
+  /** "real": respeta el horario de BYMA; "always": rueda abierta siempre (para demostraciones). */
+  sessionMode: "real" | "always";
 }
 
 export const DEFAULT_SETTINGS: DemoSettings = {
@@ -98,6 +100,7 @@ export const DEFAULT_SETTINGS: DemoSettings = {
   twoFactor: true,
   notify: { fills: true, deposits: true, news: false, priceAlerts: true, channelEmail: true, channelWhatsapp: true, channelPush: false },
   riskProfile: "Moderado",
+  sessionMode: "real",
 };
 
 export type TicketStatus = "Abierto" | "En curso" | "Resuelto";

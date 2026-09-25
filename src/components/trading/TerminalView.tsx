@@ -26,9 +26,9 @@ type BottomTab = "orders" | "positions" | "history";
 /** Terminal avanzada: gráfico grande con RSI, libro L2 y boleta lateral. */
 export function TerminalView({ symbol }: { symbol: string }) {
   const router = useRouter();
-  const { quote, prices } = useMarket();
+  const { quote, prices, session } = useMarket();
   const instrument = quote(symbol);
-  const { orders, submit, cancel, cancelBracket, available, sellable, simMode, account } = useTrading();
+  const { orders, submit, cancel, cancelBracket, available, sellable, simMode, restriction, account } = useTrading();
   const [settings] = useSettingsStore();
   const [levels, setLevels] = useTicketLevels(instrument);
   const positions = Object.entries(account.positions).map(([sym, p]) => {
@@ -87,6 +87,9 @@ export function TerminalView({ symbol }: { symbol: string }) {
               available={available(instrument.currency)}
               sellable={sellable(instrument.symbol)}
               confirmByDefault={settings.confirmOrders}
+            restriction={restriction}
+            marketOpen={session.open}
+            sessionLabel={session.label}
               simulated={simMode}
               levels={levels}
               onLevelsChange={setLevels}

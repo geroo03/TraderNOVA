@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { LineChart } from "@/components/charts/LineChart";
 import { OrderBook } from "@/components/trading/OrderBook";
-import { Badge, StatusDot } from "@/components/ui/Badge";
+import { Badge } from "@/components/ui/Badge";
 import { ButtonLink } from "@/components/ui/Button";
 import { MsIcon } from "@/components/ui/MsIcon";
 import { Panel, Stat, table } from "@/components/ui/Page";
@@ -15,6 +15,7 @@ import { intradaySeries, marketIndices, type Board, type Instrument } from "@/li
 import { flashClass, useMarket } from "@/components/market/MarketProvider";
 import { useWatchlistStore } from "@/lib/store/hooks";
 import { PriceAlerts } from "./PriceAlerts";
+import { SessionBadge } from "@/components/market/SessionBadge";
 
 type Filter = "fav" | Board;
 
@@ -50,9 +51,7 @@ export function QuotesView({ initialFilter = "Panel Líder", initialSymbol = "GG
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
-        <Badge tone="positive" className="uppercase">
-          <StatusDot /> Mercado abierto BYMA
-        </Badge>
+        <SessionBadge />
         <span className="text-label text-fg-subtle">Rueda normal 11:00 a 17:00 hs · Liquidación CI / 24hs · Últ. sincro {lastTick || "14:32:08"}</span>
       </div>
 

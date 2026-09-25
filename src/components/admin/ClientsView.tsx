@@ -9,7 +9,7 @@ import type { MsIconName } from "@/components/ui/ms-icon-names";
 import { Panel, table } from "@/components/ui/Page";
 import type { ClientStatus } from "@/lib/admin-data";
 import { useToast } from "@/components/ui/Toast";
-import { pushAudit, useClientsStore } from "@/lib/store/hooks";
+import { isInvestorAccount, pushAudit, pushNotification, useClientsStore } from "@/lib/store/hooks";
 import { staffUser } from "@/lib/mock-data";
 import { formatDecimal } from "@/lib/format";
 
@@ -54,6 +54,13 @@ export function ClientsView({ initialFilter = "all", initialQuery = "" }: { init
     setNote(msg);
     toast({ title: status === "activo" ? "Comitente aprobado" : "Comitente bloqueado", text: c?.name, tone: status === "activo" ? "positive" : "negative" });
     pushAudit({ who: staffUser.fullName, role: "Compliance", action: status === "activo" ? "Aprobación de legajo KYC" : "Bloqueo de comitente", ref: c?.account ?? id, detail: msg });
+    // El inversor de la demo ve el cambio en su app: se bloquea o habilita la operatoria.
+    if (c && isInvestorAccount(c.account))
+      pushNotification(
+        status === "activo"
+          ? { title: "Tu cuenta está habilitada", text: "Compliance aprobó tu legajo: ya podés operar y retirar fondos.", tone: "positive", href: "/operar" }
+          : { title: "Tu cuenta fue restringida", text: "Compliance bloqueó la operatoria de tu cuenta. Escribinos desde Soporte.", tone: "negative", href: "/soporte" },
+      );
   }
 
   return (

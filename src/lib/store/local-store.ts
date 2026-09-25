@@ -7,7 +7,8 @@ import { useCallback, useSyncExternalStore } from "react";
  * El servidor siempre renderiza el valor inicial; el cliente lo reemplaza por el guardado
  * después de hidratar, así no hay diferencias de hidratación.
  */
-const PREFIX = "nodo.v1.";
+// Subir la versión cuando cambian las semillas: los datos guardados con la versión anterior se ignoran.
+export const PREFIX = "nodo.v2.";
 const cache = new Map<string, unknown>();
 const listeners = new Map<string, Set<() => void>>();
 

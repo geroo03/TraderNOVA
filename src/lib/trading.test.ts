@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { accountSnapshot, crosses, matchOrders, sellableQty, type AccountBase, type LiveOrder, type Movement } from "./trading";
+import { accountSnapshot, crosses, expireOrders, matchOrders, sellableQty, type AccountBase, type LiveOrder, type Movement } from "./trading";
 import { orderValue } from "./orders";
 import { REAL_BASE, SEED_MOVEMENTS, SEED_ORDERS } from "./store/demo-data";
 
@@ -80,7 +80,7 @@ describe("matchOrders", () => {
   it("ejecuta la entrada, activa el bracket y luego dispara el stop con su resultado", () => {
     const entry = order({ bracket: { stop: 4_900, target: 5_200 } });
     const filled = matchOrders([entry], { GGAL: 4_990 }, "t", id);
-    expect(filled.events[0].kind).toBe("fill");
+    expect(filled.events[0]).toMatchObject({ kind: "fill", qty: 10 });
     expect(filled.orders[0]).toMatchObject({ status: "executed", filled: 10, bracketState: "active" });
 
     const stopped = matchOrders(filled.orders, { GGAL: 4_880 }, "t", id);
@@ -98,5 +98,38 @@ describe("matchOrders", () => {
     expect(r.events[0]).toMatchObject({ kind: "target", pnl: 2_000 });
     expect(r.orders[0].simulated).toBe(true);
     expect(r.orders[0].id.startsWith("SIM")).toBe(true);
+  });
+});
+
+it("en una orden parcial el evento informa solo el remanente ejecutado", () => {
+  const r = matchOrders([order({ quantity: 1_000, filled: 600, status: "partial" })], { GGAL: 4_000 }, "t", id);
+  expect(r.events[0]).toMatchObject({ kind: "fill", qty: 400 });
+  expect(r.orders[0]).toMatchObject({ filled: 1_000, status: "executed" });
+});
+
+describe("horario y vencimiento", () => {
+  it("con el mercado cerrado solo se ejecutan las órdenes elegibles (simuladas)", () => {
+    const real = order({});
+    const sim = order({ simulated: true });
+    const r = matchOrders([real, sim], { GGAL: 4_000 }, "t", id, (o) => !!o.simulated);
+    expect(r.orders[0].status).toBe("working");
+    expect(r.orders[1].status).toBe("executed");
+  });
+
+  it("las órdenes del día vencen al pasar su cierre y quedan anotadas", () => {
+    const list = [order({ validUntil: 1_000 }), order({ validUntil: 5_000 }), order({ status: "executed", filled: 10, validUntil: 1_000 })];
+    const r = expireOrders(list, 2_000);
+    expect(r.expired).toHaveLength(1);
+    expect(r.orders[0]).toMatchObject({ status: "cancelled", note: "Vencida al cierre de la rueda" });
+    expect(r.orders[1].status).toBe("working");
+    expect(expireOrders(list, 500).orders).toBe(list);
+  });
+
+  it("una orden vencida libera los fondos reservados", () => {
+    const open = order({ validUntil: 1_000 });
+    const before = accountSnapshot(base, [open]);
+    const after = accountSnapshot(base, expireOrders([open], 2_000).orders);
+    expect(before.reservedArs).toBeGreaterThan(0);
+    expect(after.reservedArs).toBe(0);
   });
 });

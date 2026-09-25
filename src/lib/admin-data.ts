@@ -90,7 +90,8 @@ export const clients: Client[] = [
   { id: "c1", name: "Mariano Bustos", initials: "MB", account: "#84921", cuit: "20-31456892-7", email: "mariano.bustos.dev@gmail.com", phone: "+54 9 11 4839-9102", status: "kyc", since: "18/02/2025", equity: 12_500_000, equityUsd: 9_725, risk: "Medio", occupation: "Ingeniero de software (Rel. dependencia)", address: "Av. Santa Fe 3240, 8º B · CABA", alert: "El fondeo inicial supera en 450% el perfil declarado ($2.500.000). Requiere justificación de fondos antes de habilitar." },
   { id: "c2", name: "Lucía Morales", initials: "LM", account: "#46512", cuit: "27-35120841-2", email: "lmorales@fiberbox.com.ar", phone: "+54 9 11 4722-0183", status: "activo", since: "14/02/2025", equity: 12_450_000, equityUsd: 9_690, risk: "Bajo", occupation: "Contadora pública", address: "Olazábal 1820 · CABA" },
   { id: "c3", name: "Inversiones del Plata S.A.", initials: "IP", account: "#87811", cuit: "30-71823652-1", email: "tesoreria@delplata.com", phone: "+54 11 5031-4000", status: "activo", since: "17/02/2025", equity: 84_200_000, equityUsd: 65_500, risk: "Medio", occupation: "Persona jurídica · Agro", address: "Reconquista 620 · CABA" },
-  { id: "c4", name: "Facundo Rossi", initials: "FR", account: "#84920", cuit: "20-38492039-4", email: "facu.rossi@icloud.com", phone: "+54 9 11 5555-0000", status: "bloqueado", since: "14/02/2025", equity: 2_540_000, equityUsd: 1_975, risk: "Alto", occupation: "Comerciante", address: "Mitre 455 · Rosario", alert: "Oficio judicial recibido: medida cautelar sobre saldos." },
+  { id: "c4", name: "Facundo Rossi", initials: "FR", account: "#84920", cuit: "20-38492039-4", email: "facu.rossi@icloud.com", phone: "+54 9 11 5555-0000", status: "activo", since: "14/02/2025", equity: 24_850_340, equityUsd: 19_332, risk: "Medio", occupation: "Comerciante", address: "Mitre 455 · Rosario" },
+  { id: "c8", name: "Rodrigo Álvarez", initials: "RA", account: "#70231", cuit: "20-29384756-1", email: "ralvarez@gmail.com", phone: "+54 9 341 552-9017", status: "bloqueado", since: "08/02/2025", equity: 2_540_000, equityUsd: 1_975, risk: "Alto", occupation: "Comerciante", address: "Córdoba 1450 · Rosario", alert: "Oficio judicial recibido: medida cautelar sobre saldos." },
   { id: "c5", name: "Gonzalo Varela", initials: "GV", account: "#91038", cuit: "20-28405192-3", email: "gvarela@corriente.gob.ar", phone: "+54 9 379 422-1180", status: "pep", since: "19/02/2025", equity: 18_700_000, equityUsd: 14_550, risk: "Alto", occupation: "Funcionario público (PEP)", address: "Junín 1550 · Corrientes" },
   { id: "c6", name: "Camila Ferreyra", initials: "CF", account: "#77214", cuit: "27-40218736-5", email: "cferreyra@proton.me", phone: "+54 9 351 612-0044", status: "activo", since: "10/02/2025", equity: 3_418_000, equityUsd: 2_660, risk: "Bajo", occupation: "Diseñadora UX", address: "Ituzaingó 870 · Córdoba" },
   { id: "c7", name: "Esteban Quiroga", initials: "EQ", account: "#65102", cuit: "20-33620198-1", email: "equiroga@outlook.com", phone: "+54 9 261 508-7730", status: "activo", since: "12/02/2025", equity: 52_190_000, equityUsd: 40_600, risk: "Medio", occupation: "Productor vitivinícola", address: "San Martín 1200 · Mendoza" },
@@ -110,12 +111,14 @@ export interface TreasuryItem {
   risk: string;
   observed?: boolean;
   vip?: boolean;
+  /** Retiro pedido por el inversor de la demo: al resolverlo se actualiza su movimiento. */
+  movementId?: string;
 }
 
 export const treasuryQueue: TreasuryItem[] = [
   { id: "TRX-98241", kind: "RETIRO", client: "Mariano Bustos", account: "84921", amount: 12_500_000, currency: "ARS", bank: "Banco Galicia · CBU ***9102", cuitMatch: true, risk: "SLA 12m" },
   { id: "TRX-98239", kind: "DEPÓSITO", client: "Inversiones del Plata S.A.", account: "87811", amount: 35_000, currency: "USD", bank: "BBVA Francés · cuenta de 3ro", cuitMatch: false, risk: "Alerta PLA", observed: true, vip: true },
-  { id: "TRX-98236", kind: "RETIRO", client: "Facundo Rossi", account: "84920", amount: 3_200_000, currency: "ARS", bank: "Banco Santander · CBU ***3312", cuitMatch: true, risk: "Cautelar", observed: true },
+  { id: "TRX-98236", kind: "RETIRO", client: "Rodrigo Álvarez", account: "70231", amount: 3_200_000, currency: "ARS", bank: "Banco Santander · CBU ***3312", cuitMatch: true, risk: "Cautelar", observed: true },
   { id: "TRX-98230", kind: "RETIRO", client: "Agropecuaria El Ombú", account: "55410", amount: 24_000_000, currency: "ARS", bank: "Banco Macro · Interbanking", cuitMatch: false, risk: "CUIT ≠", observed: true, vip: true },
   { id: "TRX-98228", kind: "RETIRO", client: "Carla Méndez", account: "71020", amount: 450_000, currency: "ARS", bank: "Mercado Pago · CVU ***8841", cuitMatch: true, risk: "SLA 3m" },
 ];
@@ -224,7 +227,8 @@ export const riskLimits: RiskLimit[] = [
   { clientId: "c1", exposureLimit: 2_500_000, used: 1_980_000, collateral: 100, leverage: false },
   { clientId: "c2", exposureLimit: 15_000_000, used: 6_200_000, collateral: 92, leverage: true },
   { clientId: "c3", exposureLimit: 120_000_000, used: 98_400_000, collateral: 74, leverage: true },
-  { clientId: "c4", exposureLimit: 0, used: 0, collateral: 100, leverage: false },
+  { clientId: "c4", exposureLimit: 30_000_000, used: 20_600_000, collateral: 100, leverage: false },
+  { clientId: "c8", exposureLimit: 0, used: 0, collateral: 100, leverage: false },
   { clientId: "c5", exposureLimit: 10_000_000, used: 9_100_000, collateral: 81, leverage: false },
   { clientId: "c6", exposureLimit: 5_000_000, used: 1_200_000, collateral: 100, leverage: false },
   { clientId: "c7", exposureLimit: 60_000_000, used: 47_300_000, collateral: 77, leverage: true },

@@ -31,12 +31,16 @@ export interface LiveOrder {
   simulated?: boolean;
   /** Nominales ya reflejados en el saldo base (órdenes históricas de la semilla). */
   settledQty?: number;
+  /** Orden del día: vence al cierre de su rueda (timestamp ms). Las simuladas no vencen. */
+  validUntil?: number;
+  /** Aclaración visible en la tabla (p. ej. "Vencida al cierre de la rueda"). */
+  note?: string;
 }
 
 export const isOpenOrder = (o: Pick<LiveOrder, "status">) => o.status === "working" || o.status === "partial";
 
 export type MovementKind = "deposit" | "withdrawal" | "mep" | "income" | "caucion";
-export type MovementStatus = "Acreditado" | "Liquidado T+1" | "En proceso" | "Rechazado" | "Colocada";
+export type MovementStatus = "Acreditado" | "Liquidado T+1" | "En proceso" | "Rechazado" | "Colocada" | "Cobrada";
 
 export interface Movement {
   id: string;
@@ -53,6 +57,9 @@ export interface Movement {
   historic?: boolean;
   /** Timestamp (ms) en que un depósito "En proceso" pasa a acreditado. */
   settleAt?: number;
+  /** Caución: cuándo vence y cuánto devuelve (capital + interés). */
+  maturesAt?: number;
+  payout?: number;
 }
 
 export interface Position {
@@ -142,6 +149,8 @@ export interface MatchEvent {
   kind: "fill" | "stop" | "target";
   order: LiveOrder;
   price: number;
+  /** Nominales ejecutados en este evento (en una orden parcial, solo el remanente). */
+  qty: number;
   /** Resultado bruto de la salida (stop/target) respecto de la entrada. */
   pnl?: number;
 }
@@ -161,17 +170,19 @@ export function matchOrders(
   prices: Record<string, number>,
   time: string,
   makeId: (prefix: string) => string,
+  /** Qué órdenes pueden ejecutarse ahora (p. ej. con el mercado cerrado, solo las simuladas). */
+  eligible: (o: LiveOrder) => boolean = () => true,
 ): { orders: LiveOrder[]; events: MatchEvent[] } {
   const events: MatchEvent[] = [];
   const exits: LiveOrder[] = [];
 
   const next = orders.map((o) => {
     const p = prices[o.symbol];
-    if (p === undefined) return o;
+    if (p === undefined || !eligible(o)) return o;
 
     if (isOpenOrder(o) && o.type !== "Mercado" && crosses(o, p)) {
       const filled: LiveOrder = { ...o, filled: o.quantity, status: "executed", ...(o.bracket ? { bracketState: "active" as const } : {}) };
-      events.push({ kind: "fill", order: filled, price: o.price });
+      events.push({ kind: "fill", order: filled, price: o.price, qty: o.quantity - o.filled });
       return filled;
     }
 
@@ -195,13 +206,25 @@ export function matchOrders(
         ...(o.simulated ? { simulated: true } : {}),
       };
       exits.push(exit);
-      events.push({ kind: hit, order: exit, price: level, pnl: ((level - o.price) * o.quantity) / priceDivisor(o.symbol) });
+      events.push({ kind: hit, order: exit, price: level, qty: o.quantity, pnl: ((level - o.price) * o.quantity) / priceDivisor(o.symbol) });
       return { ...o, bracketState: hit === "stop" ? ("stopped" as const) : ("target" as const) };
     }
     return o;
   });
 
   return { orders: events.length ? [...exits, ...next] : orders, events };
+}
+
+/** Cancela las órdenes del día que pasaron su vencimiento. Devuelve las vencidas para notificarlas. */
+export function expireOrders(orders: LiveOrder[], now: number): { orders: LiveOrder[]; expired: LiveOrder[] } {
+  const expired: LiveOrder[] = [];
+  const next = orders.map((o) => {
+    if (!isOpenOrder(o) || o.validUntil === undefined || o.validUntil > now) return o;
+    const done: LiveOrder = { ...o, status: "cancelled", note: "Vencida al cierre de la rueda" };
+    expired.push(done);
+    return done;
+  });
+  return { orders: expired.length ? next : orders, expired };
 }
 
 /** Moneda de liquidación de una especie. */

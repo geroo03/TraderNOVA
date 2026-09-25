@@ -75,6 +75,7 @@ export function OpenOrders({ orders, onCancel, onCancelBracket }: OpenOrdersProp
                   <Badge tone={s.tone} pill>
                     <StatusDot tone={s.tone} /> {s.label}
                   </Badge>
+                  {o.note && <span className="block pt-0.5 text-[10px] text-fg-subtle">{o.note}</span>}
                 </td>
                 <td className={`${table.td} text-right`}>
                   {isOpenOrder(o) && onCancel && (

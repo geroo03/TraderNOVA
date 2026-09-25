@@ -3,6 +3,8 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { instruments, tape as seedTape, type Execution, type Instrument } from "@/lib/market-data";
 import { nowTime } from "@/lib/download";
+import { useSimModeStore } from "@/lib/store/hooks";
+import { useMarketSession, type MarketSession } from "./useSession";
 
 export type FeedSpeed = 1 | 5 | 20;
 
@@ -20,6 +22,9 @@ interface MarketState {
   lastTick: string;
   /** Dirección del último movimiento por especie, para el destello de color. */
   moves: Record<string, 1 | -1 | 0>;
+  session: MarketSession;
+  /** El feed se mueve: rueda abierta, o modo simulación (que opera 24/7). */
+  live: boolean;
 }
 
 const MarketContext = createContext<MarketState | null>(null);
@@ -70,9 +75,12 @@ export function MarketProvider({ children }: { children: ReactNode }) {
   const [lastTick, setLastTick] = useState("");
 
   const pricesRef = useRef(basePrices);
+  const session = useMarketSession();
+  const [simMode] = useSimModeStore();
+  const live = !paused && (session.open || simMode);
 
   useEffect(() => {
-    if (paused) return;
+    if (!live) return;
     const id = setInterval(() => {
       const time = nowTime();
       const { next, dir, trades } = tick(pricesRef.current, VOL[speed], time);
@@ -87,7 +95,7 @@ export function MarketProvider({ children }: { children: ReactNode }) {
       setLastTick(time);
     }, INTERVAL[speed]);
     return () => clearInterval(id);
-  }, [paused, speed]);
+  }, [live, speed]);
 
   const value = useMemo<MarketState>(() => {
     const quote = (symbol: string): Instrument => {
@@ -106,8 +114,10 @@ export function MarketProvider({ children }: { children: ReactNode }) {
       setPaused,
       lastTick,
       moves,
+      session,
+      live,
     };
-  }, [prices, tapes, speed, paused, lastTick, moves]);
+  }, [prices, tapes, speed, paused, lastTick, moves, session, live]);
 
   return <MarketContext value={value}>{children}</MarketContext>;
 }
@@ -124,6 +134,8 @@ const staticMarket: MarketState = {
   setPaused: () => {},
   lastTick: "",
   moves: {},
+  session: { open: true, label: "", forced: false },
+  live: false,
 };
 
 export function useMarket(): MarketState {

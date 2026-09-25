@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { MarketsView } from "@/components/markets/MarketsView";
-import { Badge, StatusDot } from "@/components/ui/Badge";
+import { SessionBadge } from "@/components/market/SessionBadge";
 import { PageHeader } from "@/components/ui/Page";
 import { Change } from "@/components/ui/Amount";
 import { formatDecimal } from "@/lib/format";
@@ -13,9 +13,7 @@ export default function MercadosPage() {
     <div className="flex flex-col gap-4">
       <PageHeader
         eyebrow={
-          <Badge tone="positive" className="uppercase">
-            <StatusDot /> Mercado abierto BYMA · Rueda 11:00 a 17:00 hs
-          </Badge>
+          <SessionBadge />
         }
         title="Mercados y Cotizaciones en Vivo"
         description="Conexión DMA directa a Caja de Valores & CNV."

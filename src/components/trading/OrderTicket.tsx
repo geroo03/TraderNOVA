@@ -44,6 +44,12 @@ interface OrderTicketProps {
   sellable: number;
   /** Valor inicial del check "pedir confirmación" (preferencia del usuario). */
   confirmByDefault?: boolean;
+  /** Motivo por el que la cuenta no puede operar (bloqueo o KYC); null si puede. */
+  restriction?: string | null;
+  /** Rueda abierta. Cerrada: no hay órdenes a mercado y las límite quedan para la próxima rueda. */
+  marketOpen?: boolean;
+  /** Texto de la próxima apertura, p. ej. "abre el lunes 11:00". */
+  sessionLabel?: string;
   simulated?: boolean;
   /** Tipo, precio y stop/target: controlados por el padre para sincronizarlos con el gráfico. */
   levels: TicketLevels;
@@ -61,6 +67,9 @@ export function OrderTicket({
   available,
   sellable,
   confirmByDefault = true,
+  restriction = null,
+  marketOpen = true,
+  sessionLabel = "",
   simulated = false,
   levels,
   onLevelsChange,
@@ -92,7 +101,10 @@ export function OrderTicket({
   const risk = rawRisk && { ...rawRisk, maxLoss: rawRisk.maxLoss / divisor, maxGain: rawRisk.maxGain / divisor };
   // Un precio muy alejado del mercado suele ser un error de tipeo: se avisa y se exige confirmar.
   const farFromMarket = type !== "Mercado" && priceDeviation(price, instrument.price) > MAX_PRICE_DEVIATION;
-  const invalid = qty <= 0 || effectivePrice <= 0 || overBudget || overHolding || !!bracketError;
+  // La simulación opera 24/7; la cuenta real respeta el horario de rueda.
+  const closed = !marketOpen && !simulated;
+  const marketWhileClosed = closed && type === "Mercado";
+  const invalid = qty <= 0 || effectivePrice <= 0 || overBudget || overHolding || !!bracketError || !!restriction || marketWhileClosed;
   const buy = side === "buy";
   const cur = instrument.currency === "USD" ? "U$S " : "$";
 
@@ -154,7 +166,7 @@ export function OrderTicket({
           <span className={labelCls}>Tipo de orden</span>
           <select value={type} onChange={(e) => setType(e.target.value as OrderType)} className={inputCls}>
             <option>Límite</option>
-            <option>Mercado</option>
+            <option disabled={closed}>Mercado</option>
             <option>Stop Límite</option>
           </select>
         </label>
@@ -359,6 +371,16 @@ export function OrderTicket({
           El total supera tu disponible. Reducí la cantidad o ingresá fondos.
         </p>
       )}
+      {restriction && (
+        <p role="alert" className="rounded-lg bg-alert/10 p-2 text-xs text-negative">
+          {restriction}
+        </p>
+      )}
+      {closed && (
+        <p role="status" className="rounded-lg bg-surface-high p-2 text-xs text-fg-muted">
+          {marketWhileClosed ? "Mercado cerrado: las órdenes a mercado se envían solo en horario de rueda. Usá una orden límite." : `Mercado cerrado (${sessionLabel}). La orden queda cargada para la próxima rueda y vence a su cierre.`}
+        </p>
+      )}
       {overHolding && (
         <p role="alert" className="text-xs text-negative">
           {sellable === 0 ? `No tenés ${instrument.symbol} disponible para vender.` : `Solo podés vender hasta ${formatInteger(sellable)} nominales.`}
@@ -371,7 +393,7 @@ export function OrderTicket({
       </label>
 
       <Button type="submit" variant={buy ? "buy" : "sell"} size="lg" disabled={invalid} icon="send">
-        {simulated ? "Simular" : "Enviar orden de"} {buy ? "compra" : "venta"} ({formatInteger(qty)} {instrument.symbol})
+        {simulated ? "Simular" : closed ? "Cargar orden de" : "Enviar orden de"} {buy ? "compra" : "venta"} ({formatInteger(qty)} {instrument.symbol})
       </Button>
 
       {pending && (

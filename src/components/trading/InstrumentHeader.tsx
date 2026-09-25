@@ -23,7 +23,7 @@ export function InstrumentHeader({ instrument, actions }: { instrument: Instrume
     ["Volumen", `$${formatDecimal(i.volumeM)}M`],
   ];
   const up = i.changePct >= 0;
-  const { moves } = useMarket();
+  const { moves, session } = useMarket();
 
   return (
     <Card className="flex flex-wrap items-center justify-between gap-4 p-4">
@@ -40,7 +40,8 @@ export function InstrumentHeader({ instrument, actions }: { instrument: Instrume
           {i.ratio && <Badge>{i.ratio}</Badge>}
         </div>
         <p className="text-label flex items-center gap-1 uppercase text-fg-subtle">
-          <StatusDot /> Mercado abierto · Cierre 17:00 hs (ART) · Prev. ${formatDecimal(prev)}
+          <StatusDot tone={session.open ? "positive" : "neutral"} /> {session.open ? "Mercado abierto" : "Mercado cerrado"}
+          {session.label ? ` · ${session.label}` : session.forced ? " · rueda de demostración" : ""} · Prev. ${formatDecimal(prev)}
         </p>
         <dl className="flex flex-wrap gap-x-5 gap-y-1">
           {stats.map(([k, v]) => (

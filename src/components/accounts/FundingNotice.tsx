@@ -36,7 +36,7 @@ export function FundingNotice({ onDone }: { onDone?: () => void }) {
       amount,
       currency: "ARS",
       status: "En proceso",
-    }, SETTLE_MS);
+    }, { settleInMs: SETTLE_MS });
     toast({ title: "Aviso registrado", text: `Conciliando $${formatDecimal(amount)} desde ${acc?.bank}. Se acredita en unos segundos.`, tone: "primary" });
     setSent(acc?.bank ?? "");
     onDone?.();

@@ -6,11 +6,14 @@ import { useMarket } from "@/components/market/MarketProvider";
 import { useToast } from "@/components/ui/Toast";
 import { getStore, writeStore } from "@/lib/store/local-store";
 import { KEYS, REAL_BASE, SEED_MOVEMENTS, SEED_ORDERS, SIM_BASE } from "@/lib/store/demo-data";
-import { getAlerts, pushNotification, setAlerts, useMovementsStore, useOrdersStore, useSimModeStore } from "@/lib/store/hooks";
+import { getAlerts, pushNotification, setAlerts, useInvestorRestriction, useMovementsStore, useOrdersStore, useSimModeStore } from "@/lib/store/hooks";
+import { useNow } from "@/lib/store/clock";
+import { orderValidUntil } from "@/lib/session";
 import {
   accountSnapshot,
   availableFor,
   currencyOf,
+  expireOrders,
   isOpenOrder,
   matchOrders,
   sellableQty,
@@ -37,8 +40,16 @@ interface TradingState {
   cancelBracket: (id: string) => void;
   resetSimulation: () => void;
   movements: Movement[];
-  /** Registra un movimiento; con `settleInMs`, queda "En proceso" y se acredita pasado ese tiempo. */
-  addMovement: (m: Omit<Movement, "id" | "date" | "reference" | "settleAt">, settleInMs?: number) => Movement;
+  /**
+   * Registra un movimiento. Con `settleInMs` queda "En proceso" y se acredita pasado ese tiempo;
+   * con `maturesInMs` (cauciones) se cobra capital + `payout` al vencer.
+   */
+  addMovement: (m: Omit<Movement, "id" | "date" | "reference" | "settleAt" | "maturesAt">, opts?: { settleInMs?: number; maturesInMs?: number }) => Movement;
+  /** Motivo por el que no se puede operar en el modo activo (cuenta bloqueada o en KYC); null si puede. */
+  restriction: string | null;
+  /** Igual que `restriction` pero para la cuenta real, sin importar el modo (retiros, MEP, caución). */
+  accountRestriction: string | null;
+  marketOpen: boolean;
 }
 
 const TradingContext = createContext<TradingState | null>(null);
@@ -46,7 +57,7 @@ const TradingContext = createContext<TradingState | null>(null);
 const eventText = (e: MatchEvent) => {
   const o = e.order;
   const cur = o.currency === "USD" ? "U$S " : "$";
-  const what = `${formatInteger(o.quantity)} ${o.symbol} a ${cur}${formatDecimal(e.price)}`;
+  const what = `${formatInteger(e.qty)} ${o.symbol} a ${cur}${formatDecimal(e.price)}`;
   if (e.kind === "fill") return { title: `Orden ejecutada${o.simulated ? " (SIM)" : ""}`, text: `${o.side === "buy" ? "Compraste" : "Vendiste"} ${what}.`, tone: "positive" as const };
   const pnl = `${(e.pnl ?? 0) >= 0 ? "+" : "-"}${cur}${formatDecimal(Math.abs(e.pnl ?? 0))}`;
   return e.kind === "stop"
@@ -60,7 +71,9 @@ const eventText = (e: MatchEvent) => {
  */
 export function TradingProvider({ children }: { children: ReactNode }) {
   const toast = useToast();
-  const { prices } = useMarket();
+  const { prices, session } = useMarket();
+  const now = useNow();
+  const accountRestriction = useInvestorRestriction();
   const [simMode, setSimMode] = useSimModeStore();
   const [all, setOrders] = useOrdersStore();
   const [movements, setMovements] = useMovementsStore();
@@ -73,7 +86,9 @@ export function TradingProvider({ children }: { children: ReactNode }) {
 
   const runMatching = useCallback(
     (current: Record<string, number>) => {
-      const { orders: next, events } = matchOrders(getStore(KEYS.orders, SEED_ORDERS), current, nowTime(), newId);
+      // Con la rueda cerrada (o antes de conocer la hora) solo se ejecuta lo simulado: la simulación opera 24/7.
+      const eligible = (o: LiveOrder) => !!o.simulated || (session.open && (session.forced || now !== null));
+      const { orders: next, events } = matchOrders(getStore(KEYS.orders, SEED_ORDERS), current, nowTime(), newId, eligible);
       if (!events.length) return;
       writeStore(KEYS.orders, next);
       for (const e of events) {
@@ -82,8 +97,19 @@ export function TradingProvider({ children }: { children: ReactNode }) {
         pushNotification({ ...t, href: "/ordenes" });
       }
     },
-    [toast],
+    [toast, session.open, session.forced, now],
   );
+
+  // Vencimiento de las órdenes del día al cierre de la rueda.
+  useEffect(() => {
+    if (now === null) return;
+    const { orders: next, expired } = expireOrders(getStore(KEYS.orders, SEED_ORDERS), now);
+    if (!expired.length) return;
+    writeStore(KEYS.orders, next);
+    const t = { title: `${expired.length} orden(es) vencida(s)`, text: `${expired.map((o) => o.symbol).join(", ")}: cerró la rueda sin ejecutarse.`, tone: "neutral" as const };
+    toast(t);
+    pushNotification({ ...t, href: "/ordenes" });
+  }, [now, toast]);
 
   // Motor de ejecución: cada cambio de precios revisa órdenes abiertas y stops/targets.
   useEffect(() => runMatching(prices), [prices, runMatching]);
@@ -109,12 +135,34 @@ export function TradingProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const id = setInterval(() => {
       const list = getStore<Movement[]>(KEYS.movements, SEED_MOVEMENTS);
-      const due = list.filter((m) => m.status === "En proceso" && m.settleAt && m.settleAt <= Date.now());
-      if (!due.length) return;
-      writeStore(
-        KEYS.movements,
-        list.map((m) => (due.includes(m) ? { ...m, status: "Acreditado" as const } : m)),
-      );
+      const t0 = Date.now();
+      const due = list.filter((m) => m.status === "En proceso" && m.settleAt && m.settleAt <= t0);
+      const matured = list.filter((m) => m.status === "Colocada" && m.maturesAt && m.maturesAt <= t0);
+      if (!due.length && !matured.length) return;
+      // Al vencer una caución se marca como cobrada y se acredita capital + interés.
+      const rescues: Movement[] = matured.map((m) => {
+        const rid = newId("MOV");
+        return {
+          id: rid,
+          date: `Hoy, ${nowTime().slice(0, 5)} hs`,
+          reference: `ID: ${rid}`,
+          kind: "caucion",
+          title: "Rescate de caución (capital + interés)",
+          counterparty: m.title,
+          amount: m.payout ?? -m.amount,
+          currency: m.currency,
+          status: "Acreditado",
+        };
+      });
+      writeStore(KEYS.movements, [
+        ...rescues,
+        ...list.map((m) => (due.includes(m) ? { ...m, status: "Acreditado" as const } : matured.includes(m) ? { ...m, status: "Cobrada" as const } : m)),
+      ]);
+      for (const r of rescues) {
+        const t = { title: "Caución cobrada", text: `Se acreditaron $${formatDecimal(r.amount)} (capital + interés).`, tone: "positive" as const };
+        toast(t);
+        pushNotification({ ...t, href: "/cuentas" });
+      }
       for (const m of due) {
         const amount = `${m.currency === "USD" ? "U$S " : "$"}${formatDecimal(Math.abs(m.amount))}`;
         const t =
@@ -131,6 +179,14 @@ export function TradingProvider({ children }: { children: ReactNode }) {
   const submit = useCallback(
     (o: SubmittedOrder) => {
       const market = o.type === "Mercado";
+      if (!simMode && accountRestriction) {
+        toast({ title: "Operación no permitida", text: accountRestriction, tone: "negative" });
+        return;
+      }
+      if (!simMode && market && !session.open) {
+        toast({ title: "Mercado cerrado", text: "Las órdenes a mercado solo se pueden enviar en horario de rueda.", tone: "negative" });
+        return;
+      }
       const order: LiveOrder = {
         id: newId(simMode ? "SIM" : "NYM"),
         time: nowTime(),
@@ -146,17 +202,21 @@ export function TradingProvider({ children }: { children: ReactNode }) {
         total: o.total,
         ...(o.bracket ? { bracket: o.bracket, ...(market ? { bracketState: "active" as const } : {}) } : {}),
         ...(simMode ? { simulated: true } : {}),
+        // Las órdenes reales son "del día": vencen al cierre de su rueda.
+        ...(!simMode && !market ? { validUntil: orderValidUntil(Date.now()) } : {}),
       };
       setOrders((prev) => [order, ...prev]);
       toast(
         market
           ? { title: "Orden ejecutada", text: `${o.side === "buy" ? "Compraste" : "Vendiste"} ${formatInteger(o.quantity)} ${o.symbol} a mercado.` }
-          : { title: "Orden enviada", text: `${o.type} de ${formatInteger(o.quantity)} ${o.symbol}. Se ejecuta cuando el precio la alcance.`, tone: "primary" },
+          : !simMode && !session.open
+            ? { title: "Orden cargada para la próxima rueda", text: `${o.type} de ${formatInteger(o.quantity)} ${o.symbol}. Mercado ${session.label}.`, tone: "primary" }
+            : { title: "Orden enviada", text: `${o.type} de ${formatInteger(o.quantity)} ${o.symbol}. Se ejecuta cuando el precio la alcance.`, tone: "primary" },
       );
       // Una orden límite "marketable" (p. ej. compra por encima del precio) se ejecuta en el acto.
       runMatching(prices);
     },
-    [simMode, setOrders, toast, runMatching, prices],
+    [simMode, setOrders, toast, runMatching, prices, accountRestriction, session],
   );
 
   const cancel = useCallback(
@@ -186,14 +246,15 @@ export function TradingProvider({ children }: { children: ReactNode }) {
   }, [setOrders, toast]);
 
   const addMovement = useCallback(
-    (m: Omit<Movement, "id" | "date" | "reference" | "settleAt">, settleInMs?: number) => {
+    (m: Omit<Movement, "id" | "date" | "reference" | "settleAt" | "maturesAt">, opts: { settleInMs?: number; maturesInMs?: number } = {}) => {
       const id = newId("MOV");
       const mov: Movement = {
         ...m,
         id,
         date: `Hoy, ${nowTime().slice(0, 5)} hs`,
         reference: `ID: ${id}`,
-        ...(settleInMs ? { status: "En proceso" as const, settleAt: Date.now() + settleInMs } : {}),
+        ...(opts.settleInMs ? { status: "En proceso" as const, settleAt: Date.now() + opts.settleInMs } : {}),
+        ...(opts.maturesInMs ? { maturesAt: Date.now() + opts.maturesInMs } : {}),
       };
       setMovements((prev) => [mov, ...prev]);
       return mov;
@@ -216,8 +277,11 @@ export function TradingProvider({ children }: { children: ReactNode }) {
       resetSimulation,
       movements,
       addMovement,
+      restriction: simMode ? null : accountRestriction,
+      accountRestriction,
+      marketOpen: session.open,
     }),
-    [simMode, setSimMode, orders, account, submit, cancel, cancelAll, cancelBracket, resetSimulation, movements, addMovement],
+    [simMode, setSimMode, orders, account, submit, cancel, cancelAll, cancelBracket, resetSimulation, movements, addMovement, accountRestriction, session.open],
   );
   return <TradingContext value={value}>{children}</TradingContext>;
 }
