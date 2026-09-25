@@ -6,7 +6,8 @@ import { InstrumentHeader } from "./InstrumentHeader";
 import { OrderBook } from "./OrderBook";
 import { OrderTicket } from "./OrderTicket";
 import { OpenOrders } from "./OpenOrders";
-import { PriceChart } from "./PriceChart";
+import { TradingChart } from "./chart/TradingChart";
+import { ChartWorkspace } from "./ChartWorkspace";
 import { useTrading } from "./TradingProvider";
 import { useTicketLevels } from "./useTicketLevels";
 import { Panel, table } from "@/components/ui/Page";
@@ -36,9 +37,10 @@ export function TerminalView({ symbol }: { symbol: string }) {
     return { symbol: sym, qty: p.qty, avgPrice: p.avgPrice, last, pnl: ((last - p.avgPrice) * p.qty) / priceDivisor(sym), pct: (last / p.avgPrice - 1) * 100 };
   });
   const [tab, setTab] = useState<BottomTab>("orders");
+  const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4" inert={expanded}>
       <div className="flex flex-wrap items-center gap-2">
         <label className="sr-only" htmlFor="terminal-symbol">
           Cambiar especie
@@ -63,8 +65,8 @@ export function TerminalView({ symbol }: { symbol: string }) {
       <InstrumentHeader instrument={instrument} />
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <Panel title="Gráfico avanzado" subtitle="Velas, volumen, EMA 20/50 y RSI 14" className="min-w-0">
-          <PriceChart instrument={instrument} withRsi height="h-[420px]" levels={levels} onLevelsChange={setLevels} />
+        <Panel title="Gráfico avanzado" subtitle="Indicadores, dibujos, zoom y líneas de orden" className="min-w-0">
+          <TradingChart instrument={instrument} levels={levels} onLevelsChange={setLevels} className="h-[600px]" onExpand={() => setExpanded(true)} />
         </Panel>
         <div className="flex flex-col gap-4">
           <Panel title="Libro de órdenes" actions={<Badge>Profundidad L2</Badge>}>
@@ -155,6 +157,7 @@ export function TerminalView({ symbol }: { symbol: string }) {
           )}
         </div>
       </Panel>
+      {expanded && <ChartWorkspace instrument={instrument} levels={levels} onLevelsChange={setLevels} onClose={() => setExpanded(false)} />}
     </div>
   );
 }

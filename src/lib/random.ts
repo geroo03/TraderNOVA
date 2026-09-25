@@ -25,9 +25,9 @@ export function walk(seed: number, length: number, end: number, volatility = 0.0
 }
 
 /** Velas OHLC sintéticas que cierran en `lastClose`. */
-export function candles(seed: number, length: number, lastClose: number, volatility = 0.018): Ohlc[] {
+export function candles(seed: number, length: number, lastClose: number, volatility = 0.018, drift = 0.003): Ohlc[] {
   const rnd = seeded(seed * 7 + 3);
-  const closes = walk(seed, length, lastClose, volatility, 0.003);
+  const closes = walk(seed, length, lastClose, volatility, drift);
   return closes.map((close, i) => {
     const open = i === 0 ? close * (1 - volatility / 2) : closes[i - 1];
     const wick = close * volatility * (0.3 + rnd());

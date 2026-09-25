@@ -18,6 +18,7 @@ export type MsIconName =
   | "check"
   | "check_circle"
   | "close"
+  | "close_fullscreen"
   | "content_copy"
   | "crisis_alert"
   | "crop_free"
@@ -31,8 +32,10 @@ export type MsIconName =
   | "download"
   | "error"
   | "face"
+  | "fit_screen"
   | "flare"
   | "forward_to_inbox"
+  | "fullscreen"
   | "gavel"
   | "grid_view"
   | "group"
@@ -91,4 +94,6 @@ export type MsIconName =
   | "upload_file"
   | "verified"
   | "verified_user"
-  | "warning";
+  | "warning"
+  | "zoom_in"
+  | "zoom_out";

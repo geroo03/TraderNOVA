@@ -5,7 +5,8 @@ import { InstrumentHeader } from "./InstrumentHeader";
 import { OrderBook } from "./OrderBook";
 import { OrderTicket } from "./OrderTicket";
 import { OpenOrders } from "./OpenOrders";
-import { PriceChart } from "./PriceChart";
+import { TradingChart } from "./chart/TradingChart";
+import { ChartWorkspace } from "./ChartWorkspace";
 import { TimeAndSales } from "./TimeAndSales";
 import { useTrading } from "./TradingProvider";
 import { useTicketLevels } from "./useTicketLevels";
@@ -21,6 +22,7 @@ import { useSettingsStore } from "@/lib/store/hooks";
 
 export function OperarView({ symbol, side }: { symbol: string; side: Side }) {
   const [current, setCurrent] = useState(symbol);
+  const [expanded, setExpanded] = useState(false);
   const { quote, session, live } = useMarket();
   const instrument = quote(current);
   const { orders, submit, cancel, cancelAll, cancelBracket, available, sellable, simMode, restriction } = useTrading();
@@ -30,7 +32,7 @@ export function OperarView({ symbol, side }: { symbol: string; side: Side }) {
   const pickPrice = (price: number) => setLevels({ ...levels, price, type: levels.type === "Mercado" ? "Límite" : levels.type });
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4" inert={expanded}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <label className="flex min-w-0 flex-1 items-center gap-2 text-xs text-fg-subtle">
           Especie
@@ -54,8 +56,8 @@ export function OperarView({ symbol, side }: { symbol: string; side: Side }) {
 
       <InstrumentHeader instrument={instrument} />
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[320px_minmax(0,1fr)_280px]">
-        <Panel title="Boleta de operación" className="xl:row-span-2">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
+        <Panel title="Boleta de operación" className="xl:row-span-2 xl:self-start">
           <OrderTicket
             key={`${instrument.symbol}-${simMode}`}
             instrument={instrument}
@@ -72,10 +74,10 @@ export function OperarView({ symbol, side }: { symbol: string; side: Side }) {
             onLevelsChange={setLevels}
           />
         </Panel>
-        <Panel title="Gráfico" subtitle="Velas con EMA 20 / 50" className="min-w-0">
-          <PriceChart instrument={instrument} levels={levels} onLevelsChange={setLevels} />
+        <Panel title="Gráfico" className="min-w-0">
+          <TradingChart instrument={instrument} levels={levels} onLevelsChange={setLevels} className="h-[560px]" onExpand={() => setExpanded(true)} />
         </Panel>
-        <div className="flex flex-col gap-4">
+        <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2">
           <Panel title="Libro de ofertas" actions={<Badge>Nivel 2</Badge>}>
             <OrderBook symbol={instrument.symbol} price={instrument.price} onPriceClick={pickPrice} />
           </Panel>
@@ -87,7 +89,7 @@ export function OperarView({ symbol, side }: { symbol: string; side: Side }) {
               </Badge>
             }
           >
-            <TimeAndSales symbol={instrument.symbol} />
+            <TimeAndSales symbol={instrument.symbol} rows={11} />
           </Panel>
         </div>
       </div>
@@ -114,6 +116,7 @@ export function OperarView({ symbol, side }: { symbol: string; side: Side }) {
           {simMode ? "Modo simulación: saldo virtual, sin riesgo." : "Demo: las órdenes no llegan al mercado."} Las órdenes límite se ejecutan cuando el precio simulado las alcanza.
         </p>
       </Panel>
+      {expanded && <ChartWorkspace instrument={instrument} levels={levels} onLevelsChange={setLevels} initialSide={side} onClose={() => setExpanded(false)} />}
     </div>
   );
 }

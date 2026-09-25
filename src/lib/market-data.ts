@@ -53,8 +53,9 @@ export function intradaySeries(symbol: string, last: number, points = 40): numbe
   return walk(seedOf(symbol), points, last, 0.008, 0.0008);
 }
 
-export function priceCandles(symbol: string, last: number, count = 60): Ohlc[] {
-  return candles(seedOf(symbol), count, last);
+/** Velas sintéticas que cierran en `last`. `volatility`/`drift` por vela (dependen de la temporalidad). */
+export function priceCandles(symbol: string, last: number, count = 60, volatility?: number, drift?: number): Ohlc[] {
+  return candles(seedOf(symbol), count, last, volatility, drift);
 }
 
 export interface BookLevel {
