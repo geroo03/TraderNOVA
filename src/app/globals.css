@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+/* Tokens extraídos del Figma de Nodo Trading (tema oscuro único). */
+@theme {
+  --color-bg: #0f131c;
+  --color-surface-lowest: #0a0e16;
+  --color-surface: #181c24;
+  --color-surface-high: #1c2028;
+  --color-surface-higher: #262a33;
+  --color-surface-highest: #31353e;
+
+  --color-fg: #dfe2ee;
+  --color-fg-muted: #c2c6d6;
+  --color-fg-subtle: #8c909f;
+  --color-outline: #424754;
+
+  --color-primary: #adc6ff;
+  --color-primary-strong: #4d8eff;
+  --color-on-primary: #002e6a;
+  --color-on-primary-strong: #00285d;
+  --color-positive: #4edea3;
+  --color-on-positive: #003824;
+  --color-negative: #ffb3ad;
+  --color-alert: #ff5451;
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
+
+  --shadow-card: 0px 4px 6px -1px rgb(0 0 0 / 0.1), 0px 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+/* Etiqueta mono 10px en mayúsculas: el estilo de texto más repetido del diseño. */
+@utility text-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 14px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}
