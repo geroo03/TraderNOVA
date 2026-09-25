@@ -5,8 +5,18 @@ import type { SubmittedOrder } from "./OrderTicket";
 import { useMarket } from "@/components/market/MarketProvider";
 import { useToast } from "@/components/ui/Toast";
 import { getStore, writeStore } from "@/lib/store/local-store";
-import { KEYS, REAL_BASE, SEED_MOVEMENTS, SEED_ORDERS, SIM_BASE } from "@/lib/store/demo-data";
-import { getAlerts, pushNotification, setAlerts, useInvestorRestriction, useMovementsStore, useOrdersStore, useSimModeStore } from "@/lib/store/hooks";
+import { EMPTY_BASE, KEYS, REAL_BASE, SEED_MOVEMENTS, SEED_ORDERS, SIM_BASE } from "@/lib/store/demo-data";
+import {
+  autoApproveIfDue,
+  getAlerts,
+  pushNotification,
+  setAlerts,
+  useAccountStore,
+  useInvestorRestriction,
+  useMovementsStore,
+  useOrdersStore,
+  useSimModeStore,
+} from "@/lib/store/hooks";
 import { useNow } from "@/lib/store/clock";
 import { orderValidUntil } from "@/lib/session";
 import {
@@ -78,10 +88,13 @@ export function TradingProvider({ children }: { children: ReactNode }) {
   const [all, setOrders] = useOrdersStore();
   const [movements, setMovements] = useMovementsStore();
 
+  const [investorAccount] = useAccountStore();
   const orders = useMemo(() => all.filter((o) => !!o.simulated === simMode), [all, simMode]);
+  // La cuenta de ejemplo arranca con la cartera del Figma; una cuenta nueva, vacía.
+  const realBase = investorAccount.kind === "new" ? EMPTY_BASE : REAL_BASE;
   const account = useMemo(
-    () => (simMode ? accountSnapshot(SIM_BASE, orders) : accountSnapshot(REAL_BASE, orders, movements)),
-    [simMode, orders, movements],
+    () => (simMode ? accountSnapshot(SIM_BASE, orders) : accountSnapshot(realBase, orders, movements)),
+    [simMode, orders, movements, realBase],
   );
 
   const runMatching = useCallback(
@@ -134,8 +147,10 @@ export function TradingProvider({ children }: { children: ReactNode }) {
   // Acreditación diferida de depósitos (independiente del feed, que puede estar en pausa).
   useEffect(() => {
     const id = setInterval(() => {
-      const list = getStore<Movement[]>(KEYS.movements, SEED_MOVEMENTS);
       const t0 = Date.now();
+      // Aprobación automática del legajo de una cuenta nueva (la notificación la genera el helper).
+      if (autoApproveIfDue(t0)) toast({ title: "¡Tu cuenta fue aprobada!", text: "Ya podés operar y retirar fondos." });
+      const list = getStore<Movement[]>(KEYS.movements, SEED_MOVEMENTS);
       const due = list.filter((m) => m.status === "En proceso" && m.settleAt && m.settleAt <= t0);
       const matured = list.filter((m) => m.status === "Colocada" && m.maturesAt && m.maturesAt <= t0);
       if (!due.length && !matured.length) return;

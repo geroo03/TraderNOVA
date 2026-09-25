@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { EquityCurve } from "@/components/portfolio/EquityCurve";
 import { HoldingsTable } from "@/components/portfolio/HoldingsTable";
-import { AllocationDonut, BalancesPanel, PortfolioHero } from "@/components/portfolio/PortfolioLive";
+import { AccountNumber, AllocationDonut, BalancesPanel, PortfolioGreeting, PortfolioHero } from "@/components/portfolio/PortfolioLive";
 import { MoneyActionButton } from "@/components/accounts/MoneyDialogs";
 import { FiscalReportButton } from "@/components/journal/FiscalReport";
 import { StatusDot } from "@/components/ui/Badge";
@@ -9,7 +9,6 @@ import { Card } from "@/components/ui/Card";
 import { MsIcon } from "@/components/ui/MsIcon";
 import { PageHeader, Panel } from "@/components/ui/Page";
 import type { MsIconName } from "@/components/ui/ms-icon-names";
-import { currentUser } from "@/lib/mock-data";
 
 export const metadata: Metadata = { title: "Mi Tenencia · Nodo Trading" };
 
@@ -35,11 +34,11 @@ export default function TenenciaPage() {
       <PageHeader
         eyebrow={
           <span className="text-label flex items-center gap-1 uppercase text-fg-subtle">
-            Cuenta comitente Nº {currentUser.accountNumber} · <StatusDot /> Actualizado en vivo BYMA
+            Cuenta comitente Nº <AccountNumber /> · <StatusDot /> Actualizado en vivo BYMA
           </span>
         }
         title="Mi Tenencia Valorizada"
-        description={`Tu cartera rindió más que el índice Merval durante el último mes. ¡Excelente rendimiento, ${currentUser.fullName.split(" ")[0]}!`}
+        description={<PortfolioGreeting />}
         actions={
           <>
             <FiscalReportButton />

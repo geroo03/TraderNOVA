@@ -4,7 +4,8 @@ import { useState, type MouseEvent } from "react";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { LineChart } from "@/components/charts/LineChart";
-import { usePerformance } from "@/components/portfolio/usePerformance";
+import { useFreshAccount, usePerformance } from "@/components/portfolio/usePerformance";
+import { MsIcon } from "@/components/ui/MsIcon";
 import { formatDecimal, formatPercent } from "@/lib/format";
 import { returnPct } from "@/lib/performance";
 
@@ -37,6 +38,7 @@ export function PerformanceChart() {
   const [benchmark, setBenchmark] = useState<Benchmark>("portfolio");
   const [hover, setHover] = useState<number | null>(null);
   const { series: values, stats } = usePerformance(range);
+  const fresh = useFreshAccount();
 
   const n = values.portfolio.length;
   const idx = hover ?? n - 1;
@@ -118,6 +120,13 @@ export function PerformanceChart() {
         </div>
       </div>
 
+      {fresh ? (
+        <div className="flex h-72 flex-col items-center justify-center gap-2 rounded-lg bg-surface-lowest p-6 text-center">
+          <MsIcon name="query_stats" size={32} className="text-primary" />
+          <p className="font-semibold">Tu cuenta es nueva</p>
+          <p className="max-w-md text-sm text-fg-muted">La evolución de tu patrimonio se va a armar día a día a medida que ingreses dinero y operes. Mientras tanto podés practicar en el modo simulación.</p>
+        </div>
+      ) : (
       <figure className="relative flex h-72 flex-col overflow-hidden rounded-lg bg-surface-lowest p-3">
         <div aria-hidden className="absolute inset-x-1/3 top-10 h-32 rounded-full bg-primary/10 blur-[32px]" />
         <div className="relative min-h-0 flex-1" onMouseMove={onMove} onMouseLeave={() => setHover(null)}>
@@ -156,7 +165,9 @@ export function PerformanceChart() {
         </div>
         <figcaption className="sr-only">Evolución del patrimonio de la cartera frente al S&amp;P Merval y el dólar MEP.</figcaption>
       </figure>
+      )}
 
+      {!fresh && (
       <dl className="grid grid-cols-2 gap-2 pt-1 lg:grid-cols-4">
         {statCards.map((stat) => (
           <div key={stat.label} className="rounded-lg bg-surface-high p-2">
@@ -166,6 +177,7 @@ export function PerformanceChart() {
           </div>
         ))}
       </dl>
+      )}
     </Card>
   );
 }

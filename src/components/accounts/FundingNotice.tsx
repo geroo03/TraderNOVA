@@ -13,7 +13,7 @@ const inputCls = "w-full rounded-lg bg-surface-high px-3 py-2 text-sm text-fg ou
 const SETTLE_MS = 8_000;
 
 /** Aviso de transferencia enviada: registra un depósito "En proceso" que se acredita a los segundos. */
-export function FundingNotice({ onDone }: { onDone?: () => void }) {
+export function FundingNotice({ onDone, onNeedAccount }: { onDone?: () => void; onNeedAccount?: () => void }) {
   const toast = useToast();
   const { addMovement } = useTrading();
   const [accounts] = useLinkedAccountsStore();
@@ -40,6 +40,22 @@ export function FundingNotice({ onDone }: { onDone?: () => void }) {
     toast({ title: "Aviso registrado", text: `Conciliando $${formatDecimal(amount)} desde ${acc?.bank}. Se acredita en unos segundos.`, tone: "primary" });
     setSent(acc?.bank ?? "");
     onDone?.();
+  }
+
+  if (ars.length === 0) {
+    return (
+      <div className="flex flex-col gap-2 rounded-lg bg-surface-high p-4 text-sm">
+        <p className="font-semibold">Primero vinculá una cuenta bancaria en pesos</p>
+        <p className="text-xs text-fg-muted">Solo aceptamos transferencias desde cuentas a tu nombre. Vinculala una vez y después avisás cada depósito desde acá.</p>
+        {onNeedAccount ? (
+          <Button size="sm" icon="add" className="self-start" onClick={onNeedAccount}>
+            Vincular cuenta bancaria
+          </Button>
+        ) : (
+          <p className="text-xs text-primary">Usá el botón “Vincular” de Cuentas vinculadas.</p>
+        )}
+      </div>
+    );
   }
 
   if (sent !== null) {

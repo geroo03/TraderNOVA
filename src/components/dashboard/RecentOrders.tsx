@@ -5,7 +5,7 @@ import { Badge, StatusDot, type Tone } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { Icon } from "@/components/ui/Icon";
 import { formatDecimal, formatInteger } from "@/lib/format";
-import { currentUser } from "@/lib/mock-data";
+import { useInvestor } from "@/lib/store/hooks";
 import { orderValue } from "@/lib/orders";
 import { findInstrument } from "@/lib/market-data";
 import type { Currency } from "@/lib/types";
@@ -35,6 +35,7 @@ const TH = "text-label px-3 py-2.5 uppercase text-fg-subtle whitespace-nowrap";
 
 export function RecentOrders() {
   const { orders } = useTrading();
+  const investor = useInvestor();
   const recent = orders.slice(0, 5);
   return (
     <Card className="flex flex-col gap-3 p-4">
@@ -112,7 +113,7 @@ export function RecentOrders() {
       <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
         <p className="text-label flex items-center gap-1.5 text-fg-subtle">
           <Icon name="icon-lock-small" width={10} height={13} />
-          Operaciones custodiadas en Caja de Valores S.A. a nombre del comitente {currentUser.accountNumber}.
+          Operaciones custodiadas en Caja de Valores S.A. a nombre del comitente {investor.accountNumber}.
         </p>
         <p className="text-label text-fg-subtle/70">
           Prototipo NODO Trading Terminal · Datos de mercado de ejemplo sin validez impositiva.

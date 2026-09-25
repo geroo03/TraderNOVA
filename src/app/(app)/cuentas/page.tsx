@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { FundingNotice } from "@/components/accounts/FundingNotice";
-import { AccountStats, LinkedAccountsList, MoneyActionButton } from "@/components/accounts/AccountLive";
+import { AccountStats, HolderCard, LinkedAccountsList, MoneyActionButton, ThirdPartyWarning } from "@/components/accounts/AccountLive";
 import { MovementsTable } from "@/components/accounts/MovementsTable";
 import { Badge, StatusDot } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
@@ -8,7 +8,6 @@ import { CopyField } from "@/components/ui/CopyField";
 import { MsIcon } from "@/components/ui/MsIcon";
 import { PageHeader, Panel } from "@/components/ui/Page";
 import { depositDetails as d } from "@/lib/accounts";
-import { currentUser } from "@/lib/mock-data";
 
 export const metadata: Metadata = { title: "Cuentas y Fondos · Nodo Trading" };
 
@@ -25,11 +24,7 @@ export default function CuentasPage() {
         title="Cuentas y Fondos"
         description="Administrá tus transferencias, fondeo inmediato en pesos y dólares MEP, cuentas bancarias declaradas y trazabilidad fiscal CNV."
         actions={
-          <div className="rounded-xl bg-surface px-3 py-2 text-right">
-            <p className="text-label uppercase text-fg-subtle">Titular registrado</p>
-            <p className="text-sm font-semibold">{currentUser.fullName}</p>
-            <p className="font-mono text-[11px] text-fg-subtle">CUIT 20-38492039-4</p>
-          </div>
+          <HolderCard />
         }
       />
 
@@ -50,10 +45,7 @@ export default function CuentasPage() {
           <div className="flex flex-col gap-3">
             <p className="flex gap-2 rounded-lg bg-alert/10 p-3 text-xs text-negative">
               <MsIcon name="warning" size={16} className="mt-0.5" />
-              <span>
-                Transferí exclusivamente desde cuentas a tu nombre ({currentUser.fullName} · CUIT 20-38492039-4). Los fondos de terceros se
-                rechazan y devuelven en 48 hs hábiles.
-              </span>
+              <ThirdPartyWarning />
             </p>
             <div className="grid gap-2 sm:grid-cols-2">
               <CopyField label="Banco receptor" value={d.bank} mono={false} />

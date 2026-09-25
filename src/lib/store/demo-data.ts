@@ -25,7 +25,23 @@ export const KEYS = {
   treasury: "treasury",
   drawings: "drawings",
   alerts: "price-alerts",
+  account: "account",
 } as const;
+
+/**
+ * Cuenta activa en el navegador: la de ejemplo (Facundo Rossi, con cartera) o una abierta desde
+ * el onboarding, que arranca vacía y pendiente de KYC.
+ */
+export type InvestorAccount =
+  | { kind: "demo" }
+  | { kind: "new"; accountNumber: string; cuit: string; createdAt: number; autoApproved?: boolean; welcomeDismissed?: boolean };
+
+export const DEMO_ACCOUNT: InvestorAccount = { kind: "demo" };
+export const DEMO_IDENTITY = { accountNumber: "84920-1", cuit: "20-38492039-4" } as const;
+/** Una cuenta nueva no tiene saldo ni tenencia: hay que ingresar dinero para operar. */
+export const EMPTY_BASE: AccountBase = { ars: 0, usd: 0, positions: {} };
+/** La validación automática (Renaper + listas UIF) aprueba el legajo a los pocos segundos. */
+export const AUTO_APPROVAL_MS = 20_000;
 
 export interface PriceAlert {
   id: string;

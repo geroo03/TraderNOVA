@@ -10,10 +10,10 @@ import { useToast } from "@/components/ui/Toast";
 import { deskOrders, type AdminOrder, type AdminOrderStatus } from "@/lib/admin-data";
 import { downloadFile, stamp, toCsv } from "@/lib/download";
 import { formatDecimal, formatInteger } from "@/lib/format";
-import { currentUser, staffUser } from "@/lib/mock-data";
+import { staffUser } from "@/lib/mock-data";
 import { orderValue } from "@/lib/orders";
 import { useLocalStore } from "@/lib/store/local-store";
-import { pushAudit, pushNotification, useOrdersStore } from "@/lib/store/hooks";
+import { pushAudit, pushNotification, useInvestor, useOrdersStore } from "@/lib/store/hooks";
 
 const statusView: Record<AdminOrderStatus, { label: string; tone: Tone }> = {
   working: { label: "En rueda", tone: "primary" },
@@ -30,6 +30,7 @@ const NO_OVERRIDES: Record<string, AdminOrderStatus> = {};
 export function AdminOrdersView() {
   const toast = useToast();
   const [investorOrders, setInvestorOrders] = useOrdersStore();
+  const investor = useInvestor();
   const [overrides, setOverrides] = useLocalStore(`admin-order-status`, NO_OVERRIDES);
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
@@ -37,10 +38,10 @@ export function AdminOrdersView() {
   const all = useMemo<AdminOrder[]>(() => {
     const mine: AdminOrder[] = investorOrders
       .filter((o) => !o.simulated)
-      .map((o) => ({ ...o, client: currentUser.fullName, account: currentUser.accountNumber, channel: "Web" as const, status: o.status }));
+      .map((o) => ({ ...o, client: investor.fullName, account: investor.accountNumber, channel: "Web" as const, status: o.status }));
     const others = deskOrders.map((o) => ({ ...o, status: overrides[o.id] ?? o.status }));
     return [...mine, ...others].sort((a, b) => b.time.localeCompare(a.time));
-  }, [investorOrders, overrides]);
+  }, [investorOrders, overrides, investor]);
 
   const q = query.trim().toLowerCase();
   const isOpen = (o: AdminOrder) => o.status === "working" || o.status === "partial";
@@ -51,7 +52,7 @@ export function AdminOrdersView() {
 
   function forceCancel(o: AdminOrder) {
     if (!window.confirm(`¿Cancelar la orden ${o.id} de ${o.client}? Se notifica al comitente.`)) return;
-    if (o.account === currentUser.accountNumber) {
+    if (o.account === investor.accountNumber) {
       setInvestorOrders((prev) => prev.map((x) => (x.id === o.id ? { ...x, status: "cancelled" } : x)));
       pushNotification({ title: "Orden cancelada por la mesa", text: `${o.id}: ${o.symbol}. Consultá con soporte si tenés dudas.`, tone: "negative", href: "/ordenes" });
     } else {
@@ -122,7 +123,7 @@ export function AdminOrdersView() {
                 {rows.map((o) => {
                   const s = statusView[o.status];
                   return (
-                    <tr key={o.id} className={`${table.row} ${o.account === currentUser.accountNumber ? "bg-primary-strong/5" : ""}`}>
+                    <tr key={o.id} className={`${table.row} ${o.account === investor.accountNumber ? "bg-primary-strong/5" : ""}`}>
                       <td className={table.td}>
                         <span className="block font-mono font-semibold">{o.id}</span>
                         <span className="font-mono text-[10px] text-fg-subtle">{o.time}</span>

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { KpiCards } from "@/components/dashboard/KpiCards";
+import { WelcomeChecklist } from "@/components/dashboard/WelcomeChecklist";
 import { PerformanceChart } from "@/components/dashboard/PerformanceChart";
 import { AssetAllocation } from "@/components/dashboard/AssetAllocation";
 import { TopMovers } from "@/components/dashboard/TopMovers";
@@ -12,6 +13,7 @@ export default function DashboardPage() {
   return (
     <div className="flex flex-col gap-4">
       <h1 className="sr-only">Dashboard general</h1>
+      <WelcomeChecklist />
       <KpiCards />
       <PerformanceChart />
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">

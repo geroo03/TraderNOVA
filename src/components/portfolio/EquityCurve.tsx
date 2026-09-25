@@ -5,7 +5,7 @@ import { LineChart } from "@/components/charts/LineChart";
 import { Tabs } from "@/components/ui/Tabs";
 import { formatPercent } from "@/lib/format";
 import { returnPct, type Range } from "@/lib/performance";
-import { usePerformance } from "./usePerformance";
+import { useFreshAccount, usePerformance } from "./usePerformance";
 
 const RANGES = ["1M", "3M", "6M", "YTD", "1A", "MAX"] as const satisfies readonly Range[];
 type CurveRange = (typeof RANGES)[number];
@@ -17,9 +17,13 @@ const rebase = (values: number[]) => values.map((v) => (v / values[0]) * 100);
 export function EquityCurve() {
   const [range, setRange] = useState<CurveRange>("6M");
   const { series } = usePerformance(range);
+  const fresh = useFreshAccount();
   const p = rebase(series.portfolio);
   const m = rebase(series.merval);
   const d = rebase(series.mep);
+
+  if (fresh)
+    return <p className="flex h-56 items-center justify-center rounded-lg bg-surface-lowest p-6 text-center text-sm text-fg-muted">Todavía no hay historia: la curva se arma a medida que tu cuenta tenga movimientos.</p>;
 
   return (
     <div className="flex flex-col gap-3">

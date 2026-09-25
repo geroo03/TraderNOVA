@@ -67,7 +67,7 @@ export function performanceSeries(range: Range, anchor: number): PerformanceSeri
 
 /** Rendimiento porcentual entre el primer punto y el índice `i` (por defecto, el último). */
 export function returnPct(values: number[], i = values.length - 1): number {
-  return values.length ? (values[i] / values[0] - 1) * 100 : 0;
+  return values.length && values[0] ? (values[i] / values[0] - 1) * 100 : 0;
 }
 
 export interface SeriesStats {
@@ -92,16 +92,16 @@ export function seriesStats(values: number[], range: Range): SeriesStats {
       maxIndex = i;
     }
     peak = Math.max(peak, v);
-    drawdown = Math.min(drawdown, (v / peak - 1) * 100);
+    if (peak > 0) drawdown = Math.min(drawdown, (v / peak - 1) * 100);
   });
 
   const { years } = SHAPE[range];
   const meaningful = years >= 21 / 252;
-  const rets = values.slice(1).map((v, i) => v / values[i] - 1);
+  const rets = values.slice(1).map((v, i) => (values[i] ? v / values[i] - 1 : 0));
   const mean = rets.reduce((a, r) => a + r, 0) / (rets.length || 1);
   const sd = Math.sqrt(rets.reduce((a, r) => a + (r - mean) ** 2, 0) / (rets.length || 1));
   const perYear = rets.length / years;
-  const total = values.length ? values[values.length - 1] / values[0] : 1;
+  const total = values.length && values[0] ? values[values.length - 1] / values[0] : 1;
 
   return {
     max,

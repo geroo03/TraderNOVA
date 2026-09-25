@@ -5,17 +5,18 @@ import { useToast } from "@/components/ui/Toast";
 import { usePortfolio, MEP } from "@/components/portfolio/usePortfolio";
 import { useTrading } from "@/components/trading/TradingProvider";
 import { downloadFile, stamp, toCsv } from "@/lib/download";
-import { currentUser } from "@/lib/mock-data";
+import { useInvestor } from "@/lib/store/hooks";
 
 /** Resumen para la declaración de Bienes Personales / Ganancias con la tenencia y los movimientos actuales. */
 export function FiscalReportButton() {
   const toast = useToast();
   const { holdings, total } = usePortfolio();
   const { movements, orders } = useTrading();
+  const investor = useInvestor();
 
   function download() {
     const lines = [
-      `Informe fiscal (demo) · Comitente ${currentUser.accountNumber} · ${currentUser.fullName}`,
+      `Informe fiscal (demo) · Comitente ${investor.accountNumber} · ${investor.fullName} · CUIT ${investor.cuit}`,
       `Valuación total ARS,${total.toFixed(2)}`,
       `Tipo de cambio MEP de referencia,${MEP}`,
       "",

@@ -5,8 +5,8 @@ import { Badge, StatusDot } from "@/components/ui/Badge";
 import { Change } from "@/components/ui/Amount";
 import { flashClass, useMarket } from "@/components/market/MarketProvider";
 import { formatInteger } from "@/lib/format";
-import { currentUser, headerTicker } from "@/lib/mock-data";
-import { useSettingsStore } from "@/lib/store/hooks";
+import { headerTicker } from "@/lib/mock-data";
+import { useInvestor, useSettingsStore } from "@/lib/store/hooks";
 import { CommandPalette } from "./CommandPalette";
 import { MobileNav } from "./MobileNav";
 import { NotificationsMenu } from "./NotificationsMenu";
@@ -40,11 +40,12 @@ function Ticker() {
 
 function CurrencySwitch() {
   const [settings, setSettings] = useSettingsStore();
+  const investor = useInvestor();
   return (
     <div className="hidden items-center gap-2 rounded-lg bg-surface px-2 py-1.5 sm:flex">
       <div className="text-right">
-        <p className="text-label text-fg-subtle">CTA {currentUser.accountNumber}</p>
-        <p className="text-xs font-semibold">{currentUser.taxCondition}</p>
+        <p className="text-label text-fg-subtle">CTA {investor.accountNumber}</p>
+        <p className="text-xs font-semibold">{investor.taxCondition}</p>
       </div>
       <div role="group" aria-label="Moneda de visualización" className="flex rounded bg-surface-highest p-0.5">
         {(["ARS", "USD"] as const).map((c) => (

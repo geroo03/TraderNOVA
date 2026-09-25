@@ -11,8 +11,7 @@ import { FundingNotice } from "./FundingNotice";
 import { depositDetails as d, type LinkedAccount } from "@/lib/accounts";
 import { formatDecimal } from "@/lib/format";
 import { caucion, dollarRates } from "@/lib/mock-data";
-import { pushTreasury, useLinkedAccountsStore } from "@/lib/store/hooks";
-import { currentUser } from "@/lib/mock-data";
+import { pushTreasury, useInvestor, useLinkedAccountsStore } from "@/lib/store/hooks";
 import { nowTime } from "@/lib/download";
 
 /** Retiros hasta este monto se procesan solos (STP); los mayores pasan por aprobación de Tesorería. */
@@ -29,7 +28,13 @@ export type MoneyAction = "deposit" | "withdraw" | "mep" | "caucion" | "link";
 const mep = dollarRates.find((r) => r.label === "MEP")?.price ?? 1_285.4;
 const money = (v: number, c: "ARS" | "USD") => `${c === "USD" ? "U$S " : "$"}${formatDecimal(v)}`;
 
-function DepositBody({ onClose }: { onClose: () => void }) {
+interface BodyProps {
+  onClose: () => void;
+  /** Pasa a otro diálogo (p. ej. de depositar a vincular una cuenta). */
+  onSwitch: (action: MoneyAction) => void;
+}
+
+function DepositBody({ onClose, onSwitch }: BodyProps) {
   return (
     <div className="flex flex-col gap-4">
       <div className="grid gap-2 sm:grid-cols-2">
@@ -39,14 +44,15 @@ function DepositBody({ onClose }: { onClose: () => void }) {
       <p className="text-xs text-fg-subtle">
         Transferí desde una cuenta a tu nombre a {d.holder} (CUIT {d.cuit}) y avisanos acá para acreditarlo al instante.
       </p>
-      <FundingNotice onDone={onClose} />
+      <FundingNotice onDone={onClose} onNeedAccount={() => onSwitch("link")} />
     </div>
   );
 }
 
-function WithdrawBody({ onClose }: { onClose: () => void }) {
+function WithdrawBody({ onClose, onSwitch }: BodyProps) {
   const toast = useToast();
   const { account, addMovement, accountRestriction } = useTrading();
+  const investor = useInvestor();
   const [accounts] = useLinkedAccountsStore();
   const [accId, setAccId] = useState(accounts[0]?.id ?? "");
   const acc = accounts.find((a) => a.id === accId);
@@ -74,8 +80,8 @@ function WithdrawBody({ onClose }: { onClose: () => void }) {
         item: {
           id: `TRX-${mov.id.slice(4)}`,
           kind: "RETIRO",
-          client: currentUser.fullName,
-          account: currentUser.accountNumber.split("-")[0],
+          client: investor.fullName,
+          account: investor.accountNumber.split("-")[0],
           amount,
           currency: cur,
           bank: `${acc.bank} · CBU ***${acc.last4}`,
@@ -87,13 +93,22 @@ function WithdrawBody({ onClose }: { onClose: () => void }) {
       toast({ title: "Retiro en revisión", text: `${money(amount, cur)} supera el límite automático: lo aprueba Tesorería (vista staff).`, tone: "primary" });
     } else {
       addMovement(common, { settleInMs: 10_000 });
-      pushTreasury({ log: { time: nowTime(), operator: "Bot STP COELSA", op: `Retiro automático · ${currentUser.fullName}`, amount: `-${money(amount, cur)}`, ref: "STP", status: "Transferido" } });
+      pushTreasury({ log: { time: nowTime(), operator: "Bot STP COELSA", op: `Retiro automático · ${investor.fullName}`, amount: `-${money(amount, cur)}`, ref: "STP", status: "Transferido" } });
       toast({ title: "Retiro solicitado", text: `${money(amount, cur)} a ${acc.bank}. Llega en menos de 10 minutos.` });
     }
     onClose();
   }
 
   if (accountRestriction) return <Restricted text={accountRestriction} />;
+  if (accounts.length === 0)
+    return (
+      <div className="flex flex-col gap-2 text-sm">
+        <p>Para retirar necesitás una cuenta bancaria vinculada a tu nombre.</p>
+        <Button icon="add" className="self-start" onClick={() => onSwitch("link")}>
+          Vincular cuenta bancaria
+        </Button>
+      </div>
+    );
 
   return (
     <div className="flex flex-col gap-3">
@@ -132,7 +147,7 @@ function WithdrawBody({ onClose }: { onClose: () => void }) {
   );
 }
 
-function MepBody({ onClose }: { onClose: () => void }) {
+function MepBody({ onClose }: BodyProps) {
   const toast = useToast();
   const { account, addMovement, simMode, accountRestriction } = useTrading();
   const [ars, setArs] = useState(100_000);
@@ -172,7 +187,7 @@ function MepBody({ onClose }: { onClose: () => void }) {
   );
 }
 
-function CaucionBody({ onClose }: { onClose: () => void }) {
+function CaucionBody({ onClose }: BodyProps) {
   const toast = useToast();
   const { account, addMovement, accountRestriction } = useTrading();
   const [amount, setAmount] = useState(Math.min(caucion.availableToPlace, Math.floor(account.availableArs)));
@@ -227,7 +242,7 @@ function CaucionBody({ onClose }: { onClose: () => void }) {
 
 const BANKS = ["Banco Galicia", "BBVA Argentina", "Banco Santander", "Banco Macro", "Banco Nación", "Banco Provincia", "Brubank", "Mercado Pago"];
 
-function LinkBody({ onClose }: { onClose: () => void }) {
+function LinkBody({ onClose }: BodyProps) {
   const toast = useToast();
   const [, setAccounts] = useLinkedAccountsStore();
   const [bank, setBank] = useState(BANKS[2]);
@@ -293,10 +308,17 @@ const META: Record<MoneyAction, { title: string; description: string }> = {
 };
 
 export function MoneyDialog({ action, open, onClose }: { action: MoneyAction; open: boolean; onClose: () => void }) {
-  const Body = { deposit: DepositBody, withdraw: WithdrawBody, mep: MepBody, caucion: CaucionBody, link: LinkBody }[action];
+  // Se puede pasar de un diálogo a otro (depositar → vincular) sin cerrar la ventana.
+  const [switched, setSwitched] = useState<MoneyAction | null>(null);
+  const current = switched ?? action;
+  const close = () => {
+    setSwitched(null);
+    onClose();
+  };
+  const Body = { deposit: DepositBody, withdraw: WithdrawBody, mep: MepBody, caucion: CaucionBody, link: LinkBody }[current];
   return (
-    <Dialog open={open} onClose={onClose} title={META[action].title} description={META[action].description}>
-      <Body onClose={onClose} />
+    <Dialog open={open} onClose={close} title={META[current].title} description={META[current].description}>
+      <Body key={current} onClose={close} onSwitch={setSwitched} />
     </Dialog>
   );
 }

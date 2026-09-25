@@ -7,7 +7,7 @@ import { useToast } from "@/components/ui/Toast";
 import { useTrading } from "@/components/trading/TradingProvider";
 import { MoneyActionButton } from "./MoneyDialogs";
 import { formatDecimal } from "@/lib/format";
-import { useLinkedAccountsStore } from "@/lib/store/hooks";
+import { useInvestor, useLinkedAccountsStore } from "@/lib/store/hooks";
 
 /** Saldos de la cuenta real, derivados de movimientos y órdenes. */
 export function AccountStats() {
@@ -95,3 +95,24 @@ export function LinkedAccountsList() {
 }
 
 export { MoneyActionButton };
+
+/** Titular de la cuenta activa (encabezado de Cuentas y Fondos). */
+export function HolderCard() {
+  const investor = useInvestor();
+  return (
+    <div className="rounded-xl bg-surface px-3 py-2 text-right">
+      <p className="text-label uppercase text-fg-subtle">Titular registrado</p>
+      <p className="text-sm font-semibold">{investor.fullName}</p>
+      <p className="font-mono text-[11px] text-fg-subtle">CUIT {investor.cuit}</p>
+    </div>
+  );
+}
+
+export function ThirdPartyWarning() {
+  const investor = useInvestor();
+  return (
+    <span>
+      Transferí exclusivamente desde cuentas a tu nombre ({investor.fullName} · CUIT {investor.cuit}). Los fondos de terceros se rechazan y devuelven en 48 hs hábiles.
+    </span>
+  );
+}

@@ -7,9 +7,8 @@ import { Field, fieldCls } from "@/components/ui/Dialog";
 import { MsIcon } from "@/components/ui/MsIcon";
 import { Panel } from "@/components/ui/Page";
 import { useToast } from "@/components/ui/Toast";
-import { currentUser } from "@/lib/mock-data";
 import { newId, nowTime } from "@/lib/download";
-import { useSettingsStore, useTicketsStore } from "@/lib/store/hooks";
+import { useInvestor, useTicketsStore } from "@/lib/store/hooks";
 import type { Ticket } from "@/lib/store/demo-data";
 import { TicketThread } from "./TicketThread";
 
@@ -91,12 +90,12 @@ function NovaChat({ onEscalate }: { onEscalate: (text: string) => void }) {
 export function SupportView() {
   const toast = useToast();
   const [tickets, setTickets] = useTicketsStore();
-  const [settings] = useSettingsStore();
+  const investor = useInvestor();
   const [query, setQuery] = useState("");
   const [form, setForm] = useState({ subject: "", category: "Operatoria", priority: "Media" as Ticket["priority"], text: "" });
   const [openId, setOpenId] = useState<string | null>(null);
-  const me = settings.profile.fullName;
-  const mine = tickets.filter((t) => t.account === currentUser.accountNumber);
+  const me = investor.fullName;
+  const mine = tickets.filter((t) => t.account === investor.accountNumber);
   const q = query.trim().toLowerCase();
   const faq = FAQ.filter((f) => !q || `${f.q} ${f.a}`.toLowerCase().includes(q));
 
@@ -108,7 +107,7 @@ export function SupportView() {
       priority,
       status: "Abierto",
       client: me,
-      account: currentUser.accountNumber,
+      account: investor.accountNumber,
       createdAt: `Hoy ${nowTime().slice(0, 5)}`,
       messages: [{ from: "cliente", author: me, text, time: nowTime().slice(0, 5) }],
     };

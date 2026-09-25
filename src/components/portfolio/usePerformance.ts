@@ -6,6 +6,7 @@ import { performanceSeries, returnPct, seriesStats, type Range } from "@/lib/per
 import { orderValue } from "@/lib/orders";
 import { portfolioSummary } from "@/lib/mock-data";
 import { SIM_START_ARS, SIM_START_USD } from "@/lib/store/demo-data";
+import { useAccountStore } from "@/lib/store/hooks";
 import { MEP, usePortfolio } from "./usePortfolio";
 
 /**
@@ -25,6 +26,13 @@ function useAnchor() {
   return { anchor: anchor.value, total, simMode };
 }
 
+/** Cuenta abierta desde el onboarding y operando en real: todavía no tiene historia de rendimiento. */
+export function useFreshAccount() {
+  const [account] = useAccountStore();
+  const { simMode } = useTrading();
+  return account.kind === "new" && !simMode;
+}
+
 export function usePerformance(range: Range) {
   const { anchor, total } = useAnchor();
   const base = useMemo(() => performanceSeries(range, anchor), [range, anchor]);
@@ -36,9 +44,22 @@ export function usePerformance(range: Range) {
 /** KPIs de rendimiento del dashboard: mes, YTD, alpha y volumen operado hoy. */
 export function usePerformanceKpis() {
   const { anchor, total, simMode } = useAnchor();
-  const { orders } = useTrading();
+  const { orders, movements } = useTrading();
+  const fresh = useFreshAccount();
 
   return useMemo(() => {
+    if (fresh) {
+      // Resultado desde la apertura: patrimonio menos lo ingresado (neto de retiros).
+      const contributed = movements.reduce((a, m) => {
+        if (m.historic || m.status === "Rechazado") return a;
+        if (m.kind === "deposit" && m.status === "En proceso") return a;
+        if (m.kind !== "deposit" && m.kind !== "withdrawal") return a;
+        return a + (m.currency === "USD" ? m.amount * MEP : m.amount);
+      }, 0);
+      const result = total - contributed;
+      const pct = contributed > 0 ? (result / contributed) * 100 : 0;
+      return { simMode, fresh, monthResult: result, monthPct: pct, vsMervalPct: 0, alphaPts: 0, ytdPct: pct, dayVolume: executedVolume(orders) };
+    }
     const month = performanceSeries("1M", anchor);
     const ytd = performanceSeries("YTD", anchor);
     const monthStart = month.portfolio[0];
@@ -49,15 +70,11 @@ export function usePerformanceKpis() {
     const monthPct = (total / start - 1) * 100;
     const mervalPct = returnPct(month.merval);
     // Volumen de hoy: el de la semilla más lo que se ejecutó en esta sesión de la demo.
-    const executed = orders.reduce((a, o) => {
-      const qty = o.filled - (o.settledQty ?? 0);
-      if (qty <= 0) return a;
-      const gross = orderValue(o.symbol, qty, o.price, o.side).gross;
-      return a + (o.currency === "USD" ? gross * MEP : gross);
-    }, 0);
+    const executed = executedVolume(orders);
 
     return {
       simMode,
+      fresh,
       monthResult,
       monthPct,
       vsMervalPct: monthPct - mervalPct,
@@ -65,5 +82,15 @@ export function usePerformanceKpis() {
       ytdPct: simMode ? monthPct : (total / ytd.portfolio[0] - 1) * 100,
       dayVolume: (simMode ? 0 : portfolioSummary.dayVolume) + executed,
     };
-  }, [anchor, total, simMode, orders]);
+  }, [anchor, total, simMode, orders, movements, fresh]);
+}
+
+/** Volumen bruto (en pesos) de lo ejecutado en la demo, sin contar lo que ya estaba en la semilla. */
+function executedVolume(orders: { filled: number; settledQty?: number; symbol: string; price: number; side: "buy" | "sell"; currency: "ARS" | "USD" }[]) {
+  return orders.reduce((a, o) => {
+    const qty = o.filled - (o.settledQty ?? 0);
+    if (qty <= 0) return a;
+    const gross = orderValue(o.symbol, qty, o.price, o.side).gross;
+    return a + (o.currency === "USD" ? gross * MEP : gross);
+  }, 0);
 }

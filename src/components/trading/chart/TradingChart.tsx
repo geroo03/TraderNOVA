@@ -209,6 +209,28 @@ export function TradingChart({ instrument, levels, onLevelsChange, className = "
   // ---------- Interacción ----------
   const drag = useRef<{ x0: number; end0: number } | null>(null);
   const [dragging, setDragging] = useState(false);
+  // Punteros activos (dedos) para el zoom con pellizco en pantallas táctiles.
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const pinch = useRef<{ dist: number } | null>(null);
+  const pinchState = () => {
+    const [a, b] = [...pointers.current.values()];
+    return { dist: Math.hypot(a.x - b.x, a.y - b.y), midX: (a.x + b.x) / 2 };
+  };
+  const capture = (e: PointerEvent<HTMLDivElement>) => {
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // Puntero sintético o ya liberado: se sigue sin captura.
+    }
+  };
+  function endPointer(e: PointerEvent<HTMLDivElement>) {
+    pointers.current.delete(e.pointerId);
+    if (pointers.current.size < 2) pinch.current = null;
+    if (pointers.current.size === 0) {
+      drag.current = null;
+      setDragging(false);
+    }
+  }
   const local = (e: PointerEvent) => {
     const r = plotRef.current!.getBoundingClientRect();
     return { x: e.clientX - r.left, y: e.clientY - r.top };
@@ -217,8 +239,17 @@ export function TradingChart({ instrument, levels, onLevelsChange, className = "
   function onPointerDown(e: PointerEvent<HTMLDivElement>) {
     const p = local(e);
     if (p.x > plotW) return;
+    pointers.current.set(e.pointerId, p);
+    if (pointers.current.size === 2) {
+      // Segundo dedo: deja de desplazar y empieza el pellizco.
+      capture(e);
+      drag.current = null;
+      setDragging(false);
+      pinch.current = { dist: pinchState().dist };
+      return;
+    }
     if (tool === "cursor") {
-      e.currentTarget.setPointerCapture(e.pointerId);
+      capture(e);
       drag.current = { x0: p.x, end0: view.end };
       setDragging(true);
       return;
@@ -239,6 +270,17 @@ export function TradingChart({ instrument, levels, onLevelsChange, className = "
 
   function onPointerMove(e: PointerEvent<HTMLDivElement>) {
     const p = local(e);
+    if (pointers.current.has(e.pointerId)) pointers.current.set(e.pointerId, p);
+    if (pinch.current && pointers.current.size >= 2) {
+      const { dist, midX } = pinchState();
+      // Separar los dedos acerca (menos velas); juntarlos aleja.
+      const factor = pinch.current.dist / Math.max(1, dist);
+      if (Math.abs(factor - 1) > 0.03) {
+        zoom(factor, Math.min(midX, plotW));
+        pinch.current = { dist };
+      }
+      return;
+    }
     setHover(p.x <= plotW && p.y <= size.h - AXIS_H ? p : null);
     if (drag.current) {
       const dx = p.x - drag.current.x0;
@@ -494,15 +536,13 @@ export function TradingChart({ instrument, levels, onLevelsChange, className = "
           onKeyDown={onKeyDown}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
-          onPointerUp={() => {
-            drag.current = null;
-            setDragging(false);
-          }}
+          onPointerUp={endPointer}
+          onPointerCancel={endPointer}
           onPointerLeave={() => {
             if (!dragging) setHover(null);
           }}
           onDoubleClick={reset}
-          className={`relative min-h-0 min-w-0 flex-1 touch-none overflow-hidden rounded-lg bg-surface-lowest outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+          className={`relative min-h-0 min-w-0 flex-1 touch-pan-y overflow-hidden rounded-lg bg-surface-lowest outline-none focus-visible:ring-2 focus-visible:ring-primary ${
             dragging ? "cursor-grabbing" : "cursor-crosshair"
           }`}
         >
@@ -714,7 +754,7 @@ export function TradingChart({ instrument, levels, onLevelsChange, className = "
           {cur}
           {formatDecimal(instrument.price)} · Fuente: Feed Directo BYMA DMA (demo)
         </span>
-        <span>Rueda: zoom · Arrastrar: desplazar · Doble clic: ajustar</span>
+        <span>Rueda o pellizco: zoom · Arrastrar: desplazar · Doble clic: ajustar</span>
         {orderLines.length > 0 && <span className="text-primary">Arrastrá las etiquetas para ajustar precio, stop y target.</span>}
       </p>
     </div>

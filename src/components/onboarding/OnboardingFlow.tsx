@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { MsIcon } from "@/components/ui/MsIcon";
 import type { MsIconName } from "@/components/ui/ms-icon-names";
+import { createAccount } from "@/lib/store/hooks";
+import type { DemoSettings } from "@/lib/store/demo-data";
 
 const STEPS = ["Datos personales", "Validación DNI", "Selfie biométrica", "Perfil inversor", "Firma & términos"] as const;
 
@@ -47,8 +49,9 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 
 export function OnboardingFlow() {
   const router = useRouter();
-  const [step, setStep] = useState(1); // índice 0-based; arranca en "Validación DNI" como el Figma
-  const [personal, setPersonal] = useState<Personal>({ firstName: "Facundo", lastName: "Rossi", cuit: "20-38492039-4", email: "facundo@ejemplo.com", phone: "+54 9 11 5555-0000" });
+  const [step, setStep] = useState(0);
+  const [personal, setPersonal] = useState<Personal>({ firstName: "", lastName: "", cuit: "", email: "", phone: "" });
+  const [created, setCreated] = useState<string | null>(null);
   const [back, setBack] = useState<UploadedFile | null>(null);
   const [selfie, setSelfie] = useState<"idle" | "capturing" | "done">("idle");
   const [profile, setProfile] = useState<string | null>(null);
@@ -60,8 +63,36 @@ export function OnboardingFlow() {
 
   function next() {
     if (!canContinue) return;
-    if (step === STEPS.length - 1) router.push("/dashboard");
-    else setStep(step + 1);
+    if (step < STEPS.length - 1) return setStep(step + 1);
+    // Último paso: se crea la cuenta con los datos cargados (reemplaza a la cuenta de ejemplo).
+    setCreated(createAccount({ ...personal, riskProfile: profile as DemoSettings["riskProfile"] }));
+  }
+
+  if (created) {
+    return (
+      <Card className="mx-auto flex max-w-xl flex-col items-center gap-4 p-8 text-center">
+        <span className="flex size-14 items-center justify-center rounded-full bg-positive/15 text-positive">
+          <MsIcon name="celebration" size={30} />
+        </span>
+        <h1 className="text-2xl font-bold">¡Tu cuenta está creada, {personal.firstName.trim()}!</h1>
+        <p className="text-sm text-fg-muted">
+          Cuenta comitente <strong className="font-mono text-fg">{created}</strong> · CUIT <span className="font-mono">{personal.cuit}</span>
+        </p>
+        <div className="w-full rounded-lg bg-surface-high p-4 text-left text-sm">
+          <p className="flex items-center gap-2 font-semibold">
+            <StatusDot tone="primary" /> Legajo en revisión (KYC)
+          </p>
+          <p className="pt-1 text-xs text-fg-muted">
+            Validamos tu identidad contra Renaper y las listas UIF. En la demo se aprueba solo en unos segundos, o podés aprobarlo vos desde la vista staff (KYC &amp; Validación).
+            Mientras tanto ya podés vincular tu banco e ingresar dinero.
+          </p>
+        </div>
+        <Button size="lg" iconRight="arrow_forward" onClick={() => router.push("/dashboard")}>
+          Ir a mi cuenta
+        </Button>
+        <p className="text-[11px] text-fg-subtle">Tu cuenta arranca sin saldo. Para volver a la cartera de ejemplo: Ajustes → Datos de la demo → Reiniciar.</p>
+      </Card>
+    );
   }
 
   const requirements: { label: string; hint: string; state: "ok" | "pending" | "progress" }[] = [
@@ -133,7 +164,11 @@ export function OnboardingFlow() {
               <input type="tel" className={inputCls} value={personal.phone} onChange={(e) => setPersonal({ ...personal, phone: e.target.value })} autoComplete="tel" />
             </Field>
           </div>
-          {!personalValid && <p className="text-xs text-negative">Completá nombre, apellido, un CUIT válido (11 dígitos) y un correo.</p>}
+          {!personalValid && (
+            <p className={`text-xs ${Object.values(personal).some((v) => v.trim()) ? "text-negative" : "text-fg-subtle"}`}>
+              Completá nombre, apellido, un CUIT válido (11 dígitos) y un correo.
+            </p>
+          )}
         </Card>
       )}
 
@@ -318,7 +353,7 @@ export function OnboardingFlow() {
             Guardar y continuar más tarde
           </Link>
           <Button onClick={next} disabled={!canContinue} iconRight="arrow_forward">
-            {step === STEPS.length - 1 ? "Finalizar y entrar" : `Continuar a ${STEPS[step + 1].toLowerCase()}`}
+            {step === STEPS.length - 1 ? "Crear mi cuenta" : `Continuar a ${STEPS[step + 1].toLowerCase()}`}
           </Button>
         </div>
       </div>

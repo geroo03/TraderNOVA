@@ -52,3 +52,26 @@ test("el gráfico se amplía a toda la pantalla, permite operar y se cierra con 
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
 });
+
+test("el zoom con pellizco (dos dedos) acerca el gráfico", async ({ page }) => {
+  const chart = page.getByRole("application", { name: /Gráfico de GGAL/ });
+  const candles = () => chart.locator("svg g[clip-path] > g > rect").count();
+  const before = await candles();
+  await chart.evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    const y = r.top + r.height / 2;
+    const fire = (type: string, id: number, x: number) =>
+      el.dispatchEvent(new PointerEvent(type, { pointerId: id, pointerType: "touch", clientX: x, clientY: y, bubbles: true, isPrimary: id === 1 }));
+    const cx = r.left + r.width / 2;
+    fire("pointerdown", 1, cx - 40);
+    fire("pointerdown", 2, cx + 40);
+    // Separar los dedos en varios pasos.
+    for (let d = 60; d <= 200; d += 20) {
+      fire("pointermove", 1, cx - d);
+      fire("pointermove", 2, cx + d);
+    }
+    fire("pointerup", 1, cx - 200);
+    fire("pointerup", 2, cx + 200);
+  });
+  await expect.poll(candles).toBeLessThan(before);
+});

@@ -4,7 +4,10 @@
 import { useMemo } from "react";
 import { getStore, useLocalStore, writeStore } from "./local-store";
 import {
+  AUTO_APPROVAL_MS,
   DEFAULT_SETTINGS,
+  DEMO_ACCOUNT,
+  DEMO_IDENTITY,
   DEFAULT_WATCHLIST,
   KEYS,
   SEED_MOVEMENTS,
@@ -14,6 +17,7 @@ import {
   type AuditEntry,
   type DemoNotification,
   type DemoSettings,
+  type InvestorAccount,
   type PriceAlert,
   type Ticket,
 } from "./demo-data";
@@ -56,16 +60,141 @@ export function pushAudit(e: Omit<AuditEntry, "ts" | "hash">) {
   writeStore(KEYS.audit, [{ ...e, ts: nowTime(), hash: `0x${hex()}…${hex()}` }, ...list]);
 }
 
-/** Cuenta del inversor de la demo en el padrón del staff: su estado habilita o restringe la operatoria. */
-const INVESTOR_ACCOUNT = `#${currentUser.accountNumber.split("-")[0]}`;
-export const isInvestorAccount = (account: string) => account.replace(/^#/, "").split("-")[0] === INVESTOR_ACCOUNT.slice(1);
+// ---------- Cuenta e identidad del inversor ----------
 
-export function useInvestorRestriction(): string | null {
+export const useAccountStore = () => useLocalStore<InvestorAccount>(KEYS.account, DEMO_ACCOUNT);
+export const getAccount = () => getStore<InvestorAccount>(KEYS.account, DEMO_ACCOUNT);
+
+const accountNumberOf = (a: InvestorAccount) => (a.kind === "new" ? a.accountNumber : DEMO_IDENTITY.accountNumber);
+/** Número de cuenta como figura en el padrón del staff ("#84920"). */
+const padronOf = (accountNumber: string) => `#${accountNumber.split("-")[0]}`;
+
+/** ¿`account` (en cualquier formato: "#84920", "84920", "84920-1") es la cuenta activa del inversor? */
+export function isInvestorAccount(account: string): boolean {
+  return account.replace(/^#/, "").split("-")[0] === accountNumberOf(getAccount()).split("-")[0];
+}
+
+export interface Investor {
+  fullName: string;
+  firstName: string;
+  email: string;
+  phone: string;
+  accountNumber: string;
+  cuit: string;
+  taxCondition: string;
+  /** Cuenta abierta desde el onboarding (arranca vacía). */
+  isNew: boolean;
+  createdAt?: number;
+}
+
+/** Identidad del inversor activo: perfil de Ajustes + cuenta (de ejemplo o nueva). */
+export function useInvestor(): Investor {
+  const [settings] = useSettingsStore();
+  const [account] = useAccountStore();
+  return useMemo(() => {
+    const p = settings.profile;
+    return {
+      fullName: p.fullName,
+      firstName: p.fullName.split(" ")[0] ?? p.fullName,
+      email: p.email,
+      phone: p.phone,
+      accountNumber: accountNumberOf(account),
+      cuit: account.kind === "new" ? account.cuit : DEMO_IDENTITY.cuit,
+      taxCondition: account.kind === "new" ? "Consumidor final" : currentUser.taxCondition,
+      isNew: account.kind === "new",
+      createdAt: account.kind === "new" ? account.createdAt : undefined,
+    };
+  }, [settings.profile, account]);
+}
+
+export function useInvestorClient(): Client | undefined {
   const [clients] = useClientsStore();
-  const me = clients.find((c) => c.account === INVESTOR_ACCOUNT);
+  const [account] = useAccountStore();
+  const padron = padronOf(accountNumberOf(account));
+  return clients.find((c) => c.account === padron);
+}
+
+/** Motivo por el que la cuenta activa no puede operar (bloqueo o KYC pendiente); null si puede. */
+export function useInvestorRestriction(): string | null {
+  const me = useInvestorClient();
   if (me?.status === "bloqueado") return "Tu cuenta está bloqueada por Compliance. No podés operar ni retirar fondos; escribinos desde Soporte.";
   if (me?.status === "kyc") return "Tu legajo está en revisión (KYC). Podés depositar, pero no operar ni retirar hasta que se apruebe.";
   return null;
+}
+
+export interface NewAccountData {
+  firstName: string;
+  lastName: string;
+  cuit: string;
+  email: string;
+  phone: string;
+  riskProfile: DemoSettings["riskProfile"];
+}
+
+const RISK_OF: Record<string, Client["risk"]> = { Conservador: "Bajo", Moderado: "Medio", Agresivo: "Alto" };
+
+/**
+ * Alta de una cuenta nueva desde el onboarding: reemplaza a la cuenta de ejemplo en este navegador,
+ * arranca sin saldo ni tenencia y queda pendiente de KYC en el padrón del staff.
+ * "Reiniciar datos de la demo" (Ajustes) vuelve a la cuenta de ejemplo.
+ */
+export function createAccount(d: NewAccountData): string {
+  const n = 90_000 + Math.floor(Math.random() * 9_000);
+  const accountNumber = `${n}-${Math.floor(Math.random() * 9) + 1}`;
+  const cuit = d.cuit.replace(/\D/g, "").replace(/^(\d{2})(\d{8})(\d)$/, "$1-$2-$3");
+  const fullName = `${d.firstName.trim()} ${d.lastName.trim()}`;
+  const createdAt = Date.now();
+
+  writeStore<InvestorAccount>(KEYS.account, { kind: "new", accountNumber, cuit, createdAt });
+  const settings = { ...DEFAULT_SETTINGS, ...getStore<DemoSettings>(KEYS.settings, DEFAULT_SETTINGS) };
+  writeStore<DemoSettings>(KEYS.settings, { ...settings, profile: { fullName, email: d.email.trim(), phone: d.phone.trim(), address: "" }, riskProfile: d.riskProfile });
+  // La cuenta nueva no hereda nada de la cuenta de ejemplo.
+  writeStore<LiveOrder[]>(KEYS.orders, []);
+  writeStore<Movement[]>(KEYS.movements, []);
+  writeStore<LinkedAccount[]>(KEYS.linkedAccounts, []);
+  writeStore<boolean>(KEYS.simMode, false);
+  writeStore<PriceAlert[]>(KEYS.alerts, []);
+  writeStore<DemoNotification[]>(KEYS.notifications, [
+    { id: "welcome", title: `¡Bienvenido/a a Nodo, ${d.firstName.trim()}!`, text: `Tu cuenta ${accountNumber} está en revisión. Mientras tanto, vinculá tu banco e ingresá dinero.`, time: "Ahora", read: false, tone: "primary", href: "/dashboard" },
+  ]);
+  const client: Client = {
+    id: `c-${n}`,
+    name: fullName,
+    initials: `${d.firstName.trim()[0] ?? ""}${d.lastName.trim()[0] ?? ""}`.toUpperCase(),
+    account: padronOf(accountNumber),
+    cuit,
+    email: d.email.trim(),
+    phone: d.phone.trim() || "—",
+    status: "kyc",
+    since: new Date(createdAt).toLocaleDateString("es-AR"),
+    equity: 0,
+    equityUsd: 0,
+    risk: RISK_OF[d.riskProfile ?? "Moderado"] ?? "Medio",
+    occupation: "Sin declarar",
+    address: "Sin declarar",
+    alert: "Alta digital desde la app: validación Renaper y listas UIF en curso.",
+  };
+  writeStore<Client[]>(KEYS.clients, [client, ...getStore<Client[]>(KEYS.clients, SEED_CLIENTS)]);
+  pushAudit({ who: "Onboarding digital", role: "Sistema", action: "Alta de comitente", ref: client.account, detail: `${fullName} · CUIT ${cuit} · perfil ${d.riskProfile ?? "—"}` });
+  return accountNumber;
+}
+
+/**
+ * Aprobación automática del legajo de una cuenta nueva (simula la validación Renaper + UIF).
+ * Solo actúa una vez: si el staff ya resolvió el legajo, respeta su decisión.
+ */
+export function autoApproveIfDue(now: number): boolean {
+  const account = getAccount();
+  if (account.kind !== "new" || account.autoApproved || now - account.createdAt < AUTO_APPROVAL_MS) return false;
+  writeStore<InvestorAccount>(KEYS.account, { ...account, autoApproved: true });
+  const clients = getStore<Client[]>(KEYS.clients, SEED_CLIENTS);
+  const padron = padronOf(account.accountNumber);
+  const me = clients.find((c) => c.account === padron);
+  if (me?.status !== "kyc") return false;
+  writeStore<Client[]>(KEYS.clients, clients.map((c) => (c.account === padron ? { ...c, status: "activo" as const, alert: undefined } : c)));
+  pushAudit({ who: "Motor KYC", role: "Sistema", action: "Aprobación automática de legajo", ref: padron, detail: "Renaper OK · listas UIF/OFAC sin coincidencias" });
+  pushNotification({ title: "¡Tu cuenta fue aprobada!", text: "Validamos tu identidad. Ya podés operar y retirar fondos.", tone: "positive", href: "/operar" });
+  return true;
 }
 
 // ---------- Tesorería (compartida: el inversor encola retiros, el staff los resuelve) ----------

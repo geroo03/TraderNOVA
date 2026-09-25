@@ -7,8 +7,8 @@ import { MsIcon } from "@/components/ui/MsIcon";
 import { usePopover } from "@/components/ui/usePopover";
 import { useToast } from "@/components/ui/Toast";
 import type { MsIconName } from "@/components/ui/ms-icon-names";
-import { currentUser, staffUser } from "@/lib/mock-data";
-import { useSettingsStore } from "@/lib/store/hooks";
+import { staffUser } from "@/lib/mock-data";
+import { useInvestor, useInvestorRestriction, useSettingsStore } from "@/lib/store/hooks";
 import type { ShellVariant } from "./Sidebar";
 
 /** Botón de tema claro/oscuro. */
@@ -32,9 +32,10 @@ export function UserMenu({ variant }: { variant: ShellVariant }) {
   const router = useRouter();
   const toast = useToast();
   const { open, setOpen, ref } = usePopover();
-  const [settings] = useSettingsStore();
+  const investor = useInvestor();
+  const restriction = useInvestorRestriction();
   const admin = variant === "admin";
-  const name = admin ? staffUser.fullName : settings.profile.fullName;
+  const name = admin ? staffUser.fullName : investor.fullName;
 
   const links: { href: string; label: string; icon: MsIconName }[] = admin
     ? [
@@ -56,14 +57,14 @@ export function UserMenu({ variant }: { variant: ShellVariant }) {
         <span className="hidden text-left md:block">
           <span className="flex items-center gap-1 text-xs font-semibold">
             {name}
-            {!admin && currentUser.verified && <Icon name="icon-verified" width={13} height={13} label="Cuenta verificada" />}
+            {!admin && !restriction && <Icon name="icon-verified" width={13} height={13} label="Cuenta verificada" />}
           </span>
-          <span className="text-label block text-fg-subtle">{admin ? staffUser.role : "Verificada CNV"}</span>
+          <span className="text-label block text-fg-subtle">{admin ? staffUser.role : restriction ? (restriction.includes("KYC") ? "Legajo en revisión" : "Cuenta restringida") : "Verificada CNV"}</span>
         </span>
       </button>
       {open && (
         <div className="absolute top-full right-0 z-30 mt-2 w-60 overflow-hidden rounded-xl border border-surface-highest bg-surface-higher p-1 shadow-2xl">
-          <p className="px-2 py-1.5 text-[11px] text-fg-subtle">{admin ? "Nodo Broker S.A. · Staff" : `Comitente ${currentUser.accountNumber}`}</p>
+          <p className="px-2 py-1.5 text-[11px] text-fg-subtle">{admin ? "Nodo Broker S.A. · Staff" : `Comitente ${investor.accountNumber}`}</p>
           {links.map((l) => (
             <Link key={l.href} href={l.href} onClick={() => setOpen(false)} className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs hover:bg-surface-highest">
               <MsIcon name={l.icon} size={16} className="text-fg-subtle" />

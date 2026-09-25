@@ -66,11 +66,11 @@ export function KpiCards() {
           <div className="flex items-end justify-between">
             <div>
               <p className={`text-label ${k.ytdPct >= 0 ? "text-positive" : "text-negative"}`}>
-                {formatPercent(k.ytdPct)} {k.simMode ? "desde el inicio" : "YTD"}
+                {formatPercent(k.ytdPct)} {k.simMode || k.fresh ? "desde el inicio" : "YTD"}
               </p>
-              <p className="text-label text-fg-subtle">{k.simMode ? "Simulación" : "vs Inflación 2025"}</p>
+              <p className="text-label text-fg-subtle">{k.simMode ? "Simulación" : k.fresh ? "Cuenta nueva" : "vs Inflación 2025"}</p>
             </div>
-            <Sparkline name="kpi-sparkline-1" />
+            {!k.fresh && <Sparkline name="kpi-sparkline-1" />}
           </div>
         }
       >
@@ -93,7 +93,7 @@ export function KpiCards() {
         footer={
           <div className="flex items-end justify-between">
             <FooterStat label="Volumen operado" value={`$${formatInteger(k.dayVolume)}`} valueClass="text-fg-subtle" />
-            <Sparkline name="kpi-sparkline-2" />
+            {!k.fresh && <Sparkline name="kpi-sparkline-2" />}
           </div>
         }
       >
@@ -102,7 +102,7 @@ export function KpiCards() {
       </KpiCard>
 
       <KpiCard
-        title={k.simMode ? "Resultado de la simulación" : "Rendimiento mensual"}
+        title={k.simMode ? "Resultado de la simulación" : k.fresh ? "Resultado desde la apertura" : "Rendimiento mensual"}
         badge={
           <Badge tone="primary">
             <Icon name="kpi-mtd" width={11} height={9} />
@@ -113,10 +113,10 @@ export function KpiCards() {
           <div className="flex items-end justify-between">
             <FooterStat
               label="Alpha de Cartera"
-              value={k.simMode ? "—" : `${k.alphaPts >= 0 ? "+" : ""}${formatDecimal(k.alphaPts)} pts`}
+              value={k.simMode || k.fresh ? "—" : `${k.alphaPts >= 0 ? "+" : ""}${formatDecimal(k.alphaPts)} pts`}
               valueClass={k.alphaPts >= 0 ? "text-primary" : "text-negative"}
             />
-            <Sparkline name="kpi-sparkline-3" />
+            {!k.fresh && <Sparkline name="kpi-sparkline-3" />}
           </div>
         }
       >
@@ -126,6 +126,8 @@ export function KpiCards() {
           <span className="text-fg-subtle">
             {k.simMode
               ? "· contra el saldo virtual inicial"
+              : k.fresh
+                ? "· sobre lo que ingresaste"
               : `· ${k.vsMervalPct >= 0 ? "Superando" : "Por debajo del"} Merval en ${formatPercent(Math.abs(k.vsMervalPct), 1).replace("+", "")}`}
           </span>
         </p>

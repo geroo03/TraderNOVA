@@ -9,6 +9,7 @@ import { MoneyActionButton } from "@/components/accounts/MoneyDialogs";
 import { useTrading } from "@/components/trading/TradingProvider";
 import { formatDecimal, formatInteger, formatPercent } from "@/lib/format";
 import { MEP, usePortfolio } from "./usePortfolio";
+import { useInvestor } from "@/lib/store/hooks";
 
 const signed = (v: number) => `${v >= 0 ? "+" : "-"}$${formatDecimal(Math.abs(v))}`;
 
@@ -116,3 +117,19 @@ export function AllocationDonut() {
 }
 
 export { ButtonLink };
+
+export function AccountNumber() {
+  return <>{useInvestor().accountNumber}</>;
+}
+
+/** Saludo de Tenencia según el resultado real de la cartera. */
+export function PortfolioGreeting() {
+  const { firstName } = useInvestor();
+  const { holdings, historicGainPct } = usePortfolio();
+  if (holdings.length === 0) return <>Todavía no tenés posiciones, {firstName}. Ingresá dinero y hacé tu primera operación para empezar a armar tu cartera.</>;
+  return historicGainPct >= 0 ? (
+    <>Tu cartera rinde {formatPercent(historicGainPct)} sobre lo invertido. ¡Buen trabajo, {firstName}!</>
+  ) : (
+    <>Tu cartera está {formatPercent(historicGainPct)} sobre lo invertido, {firstName}. Revisá la diversificación y tus stops.</>
+  );
+}
