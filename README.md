@@ -38,7 +38,8 @@ Un guion de unos 5 minutos para mostrar la demo completa:
 5. **Fondos.** En `/cuentas`, avisá una transferencia. A los pocos segundos se acredita y el disponible sube en todas las pantallas. Pedí un retiro de más de $1.000.000: queda pendiente hasta que el staff lo apruebe en **Tesorería**.
 6. **Soporte.** En `/soporte`, abrí una consulta. Pasá a la vista staff (menú de cuenta → **Ir a vista staff**), respondela desde **Desk & Soporte** y volvé: la respuesta está en tu consulta.
 7. **Staff.** En **Libro de Órdenes** aparecen tus órdenes y podés cancelarlas. Si en **Usuarios** bloqueás a Facundo Rossi, la app del inversor deja de permitirle operar. Cada acción del staff queda en **Auditoría & Roles**.
-8. **Extras.** Buscador con ⌘K (Ctrl+K en Windows), tema claro con el ícono de la luna y exportaciones CSV en casi todas las tablas.
+8. **Cuenta nueva.** En `/onboarding` abrí una cuenta con tus datos: arranca vacía y en revisión de KYC. El dashboard te guía (vincular banco, ingresar dinero, primera operación) y el legajo se aprueba solo en unos segundos o desde **KYC & Validación** en la vista staff.
+9. **Extras.** Buscador con ⌘K (Ctrl+K en Windows), tema claro con el ícono de la luna y exportaciones CSV en casi todas las tablas.
 
 ---
 
@@ -50,7 +51,7 @@ Un guion de unos 5 minutos para mostrar la demo completa:
 | --- | --- | --- |
 | `/` | Landing institucional | Presentación del broker, beneficios y accesos a login y apertura de cuenta. |
 | `/login` | Iniciar sesión | Credenciales, token 2FA (con "enviar por SMS") y recuperación de contraseña. |
-| `/onboarding` | Apertura de cuenta | 5 pasos: datos personales, validación de DNI (carga de frente y dorso con validación de archivo), selfie biométrica, perfil inversor y firma. |
+| `/onboarding` | Apertura de cuenta | 5 pasos: datos personales, validación de DNI (carga del dorso con validación de archivo), selfie biométrica, perfil inversor y firma. Al finalizar crea una cuenta nueva con esos datos (ver [Cuenta de ejemplo y cuenta nueva](#cuenta-de-ejemplo-y-cuenta-nueva)). |
 
 ### App del inversor
 
@@ -92,12 +93,22 @@ Un guion de unos 5 minutos para mostrar la demo completa:
 | Temporalidades | 1m, 5m, 15m, 1H, 1D y 1S, con 320 velas de historia cada una |
 | Escalas | Eje de precios con valores redondos y etiqueta del último precio; eje de tiempo con la fecha al abrir cada rueda |
 | Cruz de mira | Línea vertical y horizontal con precio y fecha/hora; la leyenda muestra apertura, máximo, mínimo, cierre, variación y volumen de la vela |
-| Zoom y desplazamiento | Rueda del mouse (anclada en el cursor), botones, teclado (+, −, flechas, 0) y arrastrar; doble clic ajusta la vista |
+| Zoom y desplazamiento | Rueda del mouse (anclada en el cursor), pellizco con dos dedos, botones, teclado (+, −, flechas, 0) y arrastrar; doble clic ajusta la vista. En pantallas táctiles, deslizar en vertical sigue moviendo la página |
 | Indicadores | EMA 20, EMA 50, SMA 200, Bandas de Bollinger, VWAP y volumen sobre el gráfico; RSI y MACD en paneles propios. Se recuerdan entre pantallas y recargas |
 | Dibujos | Línea de tendencia, línea horizontal, medición (% y velas) y notas; acompañan el zoom y se guardan por especie y temporalidad |
 | Órdenes | Líneas de entrada, stop y target arrastrables (o con flechas del teclado) sincronizadas con la boleta |
 | Vista ampliada | Ocupa toda la ventana con la boleta y el libro al costado; opción de pantalla completa del navegador; Esc cierra |
 | Exportar | Descarga en CSV de las velas visibles |
+
+### Cuenta de ejemplo y cuenta nueva
+
+- Al entrar, la demo usa la **cuenta de ejemplo** (Facundo Rossi, cuenta 84920-1), con la cartera y los movimientos del Figma.
+- Completar el **onboarding** crea una **cuenta nueva** con los datos cargados y reemplaza a la de ejemplo en ese navegador:
+  - Arranca sin saldo, sin tenencia y sin cuentas bancarias.
+  - Tu nombre, número de cuenta y CUIT aparecen en toda la app (barra superior, Cuentas, Tenencia, informes, soporte).
+  - Queda **pendiente de KYC**: podés depositar pero no operar ni retirar. El legajo aparece en la cola de KYC del staff y se aprueba solo a los 20 segundos (simula la validación Renaper + UIF) o manualmente desde la vista staff.
+  - El dashboard muestra una guía de primeros pasos. Como no hay historia, el rendimiento se mide "desde la apertura" (patrimonio menos lo ingresado neto de retiros).
+- **Ajustes → Datos de la demo → Reiniciar** vuelve a la cuenta de ejemplo.
 
 ### Funciones que están en todas las pantallas
 
@@ -218,6 +229,7 @@ vendible   = tenencia − nominales comprometidos en ventas abiertas
 | `journal-notes` | Bitácora del diario |
 | `settings` | Perfil, tema, moneda, notificaciones, 2FA y perfil de inversor |
 | `tickets` | Consultas de soporte (inversor y staff) |
+| `account` | Cuenta activa: la de ejemplo o una abierta desde el onboarding |
 | `clients`, `treasury`, `risk-limits`, `roles` | Estado del back-office |
 | `audit` | Log de auditoría |
 
@@ -328,14 +340,15 @@ npm run e2e                       # compila y corre las pruebas
 PW_CHANNEL=chrome npm run e2e     # alternativa: usar el Chrome instalado
 ```
 
-Hay 43 pruebas en `e2e/` que corren contra el build de producción. Cada una arranca con el almacenamiento limpio y falla si la página muestra errores de consola.
+Hay 47 pruebas en `e2e/` que corren contra el build de producción. Cada una arranca con el almacenamiento limpio y falla si la página muestra errores de consola.
 
 | Archivo | Qué cubre |
 | --- | --- |
 | `smoke.spec.ts` | Las 23 rutas cargan sin errores, el buscador ⌘K y el tema claro persistente. |
 | `trading.spec.ts` | Compra que se ejecuta en el acto y persiste al recargar, venta sin tenencia bloqueada, stop/target que se disparan solos, modo simulación y KPIs del dashboard en simulación. |
 | `flows.spec.ts` | Depósito que se acredita, retiro grande aprobado por Tesorería, bloqueo del inversor por Compliance, ticket inversor ↔ staff y log de auditoría. |
-| `chart.spec.ts` | Escalas y leyenda, tipos y temporalidades, indicadores que se recuerdan al recargar, zoom con teclado y vista ampliada con boleta. |
+| `chart.spec.ts` | Escalas y leyenda, tipos y temporalidades, indicadores que se recuerdan al recargar, zoom con teclado y con pellizco, y vista ampliada con boleta. |
+| `onboarding.spec.ts` | Apertura completa de una cuenta, cuenta nueva vacía y en revisión, aprobación desde el staff y automática (reloj controlado) y primeros pasos. |
 | `session.spec.ts` | Con reloj fijo en sábado y en un feriado: mercado cerrado con su motivo, órdenes para la próxima rueda, rueda de demostración y que no se ejecute nada al cargar. |
 
 ### Integración continua
