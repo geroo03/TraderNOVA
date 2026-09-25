@@ -1,0 +1,2 @@
+# TraderNOVA
+maquetado de traidingg
